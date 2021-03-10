@@ -50,6 +50,8 @@ pub async fn main() -> Result<(), Error> {
 #[derive(Serialize, Clone)]
 struct InstanceDetails {
     domain: String,
+    name: String,
+    icon: String,
     online_users: i32,
     total_users: i64,
     users_active_halfyear: i64,
@@ -70,6 +72,8 @@ async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> 
 
     Ok(InstanceDetails {
         domain: domain.to_owned(),
+        name: site_info.site_view.site.name,
+        icon: site_info.site_view.site.icon,
         online_users: site_info.online as i32,
         total_users: node_info.usage.users.total,
         users_active_halfyear: node_info.usage.users.active_halfyear,
