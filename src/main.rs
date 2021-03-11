@@ -1,4 +1,5 @@
 use anyhow::Error;
+use futures::try_join;
 use lemmy_stats_crawler::federated_instances::GetSiteResponse;
 use lemmy_stats_crawler::node_info::NodeInfo;
 use reqwest::Client;
@@ -97,22 +98,14 @@ async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> 
     let timeout = Duration::from_secs(10);
 
     let node_info_url = format!("https://{}/nodeinfo/2.0.json", domain);
-    let node_info: NodeInfo = client
-        .get(&node_info_url)
-        .timeout(timeout)
-        .send()
-        .await?
-        .json()
-        .await?;
+    let node_info_request = client.get(&node_info_url).timeout(timeout).send();
 
     let site_info_url = format!("https://{}/api/v2/site", domain);
-    let site_info: GetSiteResponse = client
-        .get(&site_info_url)
-        .timeout(timeout)
-        .send()
-        .await?
-        .json()
-        .await?;
+    let site_info_request = client.get(&site_info_url).timeout(timeout).send();
+
+    let (node_info, site_info) = try_join!(node_info_request, site_info_request)?;
+    let node_info: NodeInfo = node_info.json().await?;
+    let site_info: GetSiteResponse = site_info.json().await?;
 
     let linked_instances = site_info
         .federated_instances
