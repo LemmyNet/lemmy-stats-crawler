@@ -9,16 +9,15 @@ use crate::REQUEST_TIMEOUT;
 
 pub async fn crawl(start_instances: Vec<String>) -> Result<Vec<InstanceDetails>, Error> {
   let mut pending_instances = VecDeque::from(start_instances);
+  let mut crawled_instances = vec![];
   let mut instance_details = vec![];
   while let Some(current_instance) = pending_instances.pop_back() {
+    crawled_instances.push(current_instance.clone());
     match fetch_instance_details(&current_instance).await {
       Ok(details) => {
         instance_details.push(details.to_owned());
-        // add all unknown, linked instances to pending
-        let crawled_instances: &Vec<&str> =
-          &instance_details.iter().map(|i| i.domain.as_ref()).collect();
         for i in details.linked_instances {
-          if !crawled_instances.contains(&&*i) && !pending_instances.contains(&i) {
+          if !crawled_instances.contains(&i) && !pending_instances.contains(&i) {
             pending_instances.push_back(i);
           }
         }
@@ -67,7 +66,7 @@ async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> 
   Ok(InstanceDetails {
     domain: domain.to_owned(),
     name: site_info.site_view.site.name,
-    version: node_info.version,
+    version: node_info.software.version,
     icon: site_info.site_view.site.icon,
     online_users: site_info.online as i32,
     total_users: node_info.usage.users.total,
