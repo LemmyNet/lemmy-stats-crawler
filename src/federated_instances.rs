@@ -22,5 +22,5 @@ pub struct SiteView {
 #[derive(Deserialize, Debug, Clone)]
 pub struct Site {
     pub name: String,
-    pub icon: String,
+    pub icon: Option<String>,
 }

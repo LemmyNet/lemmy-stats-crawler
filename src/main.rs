@@ -52,23 +52,26 @@ async fn crawl(start_instances: Vec<String>) -> Result<Vec<InstanceDetails>, Err
     let mut pending_instances = start_instances;
     let mut crawled_instances = vec![];
     let mut instance_details = vec![];
-    while let Some(pi) = pending_instances.iter().next() {
-        crawled_instances.push(pi.to_owned());
-        let current_instance_details = fetch_instance_details(&pi).await.ok();
+    while let Some(current_instance) = pending_instances.to_owned().first() {
+        crawled_instances.push(current_instance.to_owned());
+        // remove curent instance from pending
         pending_instances = pending_instances
             .iter()
-            .filter(|i| i != &pi)
+            .filter(|i| i != &current_instance)
             .map(|i| i.to_owned())
             .collect();
 
-        if let Some(details) = current_instance_details {
-            instance_details.push(details.to_owned());
-            // add all unknown, linked instances to pending
-            for ci in details.linked_instances {
-                if !crawled_instances.contains(&ci) {
-                    pending_instances.push(ci);
-                }
-            }
+        match fetch_instance_details(&current_instance).await {
+           Ok(details) => {
+               instance_details.push(details.to_owned());
+               // add all unknown, linked instances to pending
+               for i in details.linked_instances {
+                   if !crawled_instances.contains(&i) {
+                       pending_instances.push(i);
+                   }
+               }
+           },
+           Err(e) => eprintln!("Failed to crawl {}: {}", current_instance, e)
         }
     }
 
@@ -79,7 +82,7 @@ async fn crawl(start_instances: Vec<String>) -> Result<Vec<InstanceDetails>, Err
 struct InstanceDetails {
     domain: String,
     name: String,
-    icon: String,
+    icon: Option<String>,
     online_users: i32,
     total_users: i64,
     users_active_halfyear: i64,
