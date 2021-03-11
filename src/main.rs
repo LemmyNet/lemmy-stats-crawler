@@ -12,10 +12,9 @@ const START_INSTANCES: [&'static str; 1] = ["lemmy.ml"];
 #[tokio::main]
 pub async fn main() -> Result<(), Error> {
     let start_instances = START_INSTANCES.iter().map(|s| s.to_string()).collect();
-    
+
     eprintln!("Crawling...");
     let instance_details = crawl(start_instances).await?;
-    let instance_details = cleanup(instance_details);
     let total_stats = aggregate(instance_details);
 
     println!("{}", serde_json::to_string(&total_stats)?);
@@ -45,16 +44,6 @@ fn aggregate(instance_details: Vec<InstanceDetails>) -> TotalStats {
         total_online_users,
         instance_details,
     }
-}
-
-fn cleanup(instance_details: Vec<InstanceDetails>) -> Vec<InstanceDetails> {
-    let mut instance_details: Vec<InstanceDetails> = instance_details
-        .iter()
-        .filter(|i| i.open_registrations)
-        .map(|i| i.to_owned())
-        .collect();
-    instance_details.sort_by(|a, b| b.users_active_halfyear.cmp(&a.users_active_halfyear));
-    instance_details
 }
 
 async fn crawl(start_instances: Vec<String>) -> Result<Vec<InstanceDetails>, Error> {
