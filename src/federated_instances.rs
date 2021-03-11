@@ -17,12 +17,10 @@ pub struct FederatedInstances {
 #[derive(Deserialize, Debug, Clone)]
 pub struct SiteView {
     pub site: Site,
-
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Site {
     pub name: String,
     pub icon: String,
-
 }
