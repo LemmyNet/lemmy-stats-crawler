@@ -6,9 +6,12 @@ use reqwest::Client;
 use serde::Serialize;
 use tokio::time::Duration;
 
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+const START_INSTANCES: [&'static str; 1] = ["lemmy.ml"];
+
 #[tokio::main]
 pub async fn main() -> Result<(), Error> {
-    let start_instances = vec!["lemmy.ml".to_string()];
+    let start_instances = START_INSTANCES.iter().map(|s| s.to_string()).collect();
     let instance_details = crawl(start_instances).await?;
     let instance_details = cleanup(instance_details);
     let total_stats = aggregate(instance_details);
@@ -19,19 +22,23 @@ pub async fn main() -> Result<(), Error> {
 
 #[derive(Serialize)]
 struct TotalStats {
+    total_instances: i32,
     total_users: i64,
     total_online_users: i32,
     instance_details: Vec<InstanceDetails>,
 }
 
 fn aggregate(instance_details: Vec<InstanceDetails>) -> TotalStats {
+    let mut total_instances = 0;
     let mut total_users = 0;
     let mut total_online_users = 0;
     for i in &instance_details {
+        total_instances += 1;
         total_users += i.total_users;
         total_online_users += i.online_users;
     }
     TotalStats {
+        total_instances,
         total_users,
         total_online_users,
         instance_details,
@@ -62,16 +69,16 @@ async fn crawl(start_instances: Vec<String>) -> Result<Vec<InstanceDetails>, Err
             .collect();
 
         match fetch_instance_details(&current_instance).await {
-           Ok(details) => {
-               instance_details.push(details.to_owned());
-               // add all unknown, linked instances to pending
-               for i in details.linked_instances {
-                   if !crawled_instances.contains(&i) {
-                       pending_instances.push(i);
-                   }
-               }
-           },
-           Err(e) => eprintln!("Failed to crawl {}: {}", current_instance, e)
+            Ok(details) => {
+                instance_details.push(details.to_owned());
+                // add all unknown, linked instances to pending
+                for i in details.linked_instances {
+                    if !crawled_instances.contains(&i) {
+                        pending_instances.push(i);
+                    }
+                }
+            }
+            Err(e) => eprintln!("Failed to crawl {}: {}", current_instance, e),
         }
     }
 
@@ -95,16 +102,13 @@ struct InstanceDetails {
 }
 
 async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> {
-    dbg!(domain);
-
     let client = Client::default();
-    let timeout = Duration::from_secs(10);
 
     let node_info_url = format!("https://{}/nodeinfo/2.0.json", domain);
-    let node_info_request = client.get(&node_info_url).timeout(timeout).send();
+    let node_info_request = client.get(&node_info_url).timeout(REQUEST_TIMEOUT).send();
 
     let site_info_url = format!("https://{}/api/v2/site", domain);
-    let site_info_request = client.get(&site_info_url).timeout(timeout).send();
+    let site_info_request = client.get(&site_info_url).timeout(REQUEST_TIMEOUT).send();
 
     let (node_info, site_info) = try_join!(node_info_request, site_info_request)?;
     let node_info: NodeInfo = node_info.json().await?;
