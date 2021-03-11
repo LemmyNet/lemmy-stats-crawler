@@ -4,6 +4,7 @@ use lemmy_stats_crawler::federated_instances::GetSiteResponse;
 use lemmy_stats_crawler::node_info::NodeInfo;
 use reqwest::Client;
 use serde::Serialize;
+use std::collections::VecDeque;
 use tokio::time::Duration;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
@@ -47,12 +48,9 @@ fn aggregate(instance_details: Vec<InstanceDetails>) -> TotalStats {
 }
 
 async fn crawl(start_instances: Vec<String>) -> Result<Vec<InstanceDetails>, Error> {
-    let mut pending_instances = start_instances;
+    let mut pending_instances = VecDeque::from(start_instances);
     let mut instance_details = vec![];
-    while let Some(current_instance) = pending_instances.to_owned().first() {
-        // remove current instance from pending
-        pending_instances.remove(0);
-
+    while let Some(current_instance) = pending_instances.pop_back() {
         match fetch_instance_details(&current_instance).await {
             Ok(details) => {
                 instance_details.push(details.to_owned());
@@ -61,7 +59,7 @@ async fn crawl(start_instances: Vec<String>) -> Result<Vec<InstanceDetails>, Err
                     &instance_details.iter().map(|i| i.domain.as_ref()).collect();
                 for i in details.linked_instances {
                     if !crawled_instances.contains(&&*i) && !pending_instances.contains(&i) {
-                        pending_instances.push(i);
+                        pending_instances.push_back(i);
                     }
                 }
             }
