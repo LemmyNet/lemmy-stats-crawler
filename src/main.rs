@@ -12,11 +12,13 @@ const START_INSTANCES: [&'static str; 1] = ["lemmy.ml"];
 #[tokio::main]
 pub async fn main() -> Result<(), Error> {
     let start_instances = START_INSTANCES.iter().map(|s| s.to_string()).collect();
+    
+    eprintln!("Crawling...");
     let instance_details = crawl(start_instances).await?;
     let instance_details = cleanup(instance_details);
     let total_stats = aggregate(instance_details);
 
-    print!("{}", serde_json::to_string(&total_stats)?);
+    println!("{}", serde_json::to_string(&total_stats)?);
     Ok(())
 }
 
@@ -57,23 +59,19 @@ fn cleanup(instance_details: Vec<InstanceDetails>) -> Vec<InstanceDetails> {
 
 async fn crawl(start_instances: Vec<String>) -> Result<Vec<InstanceDetails>, Error> {
     let mut pending_instances = start_instances;
-    let mut crawled_instances = vec![];
     let mut instance_details = vec![];
     while let Some(current_instance) = pending_instances.to_owned().first() {
-        crawled_instances.push(current_instance.to_owned());
-        // remove curent instance from pending
-        pending_instances = pending_instances
-            .iter()
-            .filter(|i| i != &current_instance)
-            .map(|i| i.to_owned())
-            .collect();
+        // remove current instance from pending
+        pending_instances.remove(0);
 
         match fetch_instance_details(&current_instance).await {
             Ok(details) => {
                 instance_details.push(details.to_owned());
                 // add all unknown, linked instances to pending
+                let crawled_instances: &Vec<&str> =
+                    &instance_details.iter().map(|i| i.domain.as_ref()).collect();
                 for i in details.linked_instances {
-                    if !crawled_instances.contains(&i) {
+                    if !crawled_instances.contains(&&*i) && !pending_instances.contains(&i) {
                         pending_instances.push(i);
                     }
                 }
