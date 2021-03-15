@@ -59,14 +59,14 @@ pub struct InstanceDetails {
 }
 
 struct CrawlInstance {
-  domain: String,
-  depth: i32,
+    domain: String,
+    depth: i32,
 }
 
 impl CrawlInstance {
-  pub fn new(domain: String, depth: i32) -> CrawlInstance {
-    CrawlInstance { domain, depth }
-  }
+    pub fn new(domain: String, depth: i32) -> CrawlInstance {
+        CrawlInstance { domain, depth }
+    }
 }
 
 async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> {

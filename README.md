@@ -4,12 +4,6 @@ Crawls Lemmy instances using nodeinfo and API endpoints, to generate a list of i
 
 ## Usage
 
-For testing:
 ```
-cargo run
-```
-
-For production (hide debug logs):
-```
-cargo run 2>/dev/null
+cargo run -- --start-instances baraza.africa,lemmy.ml
 ```
