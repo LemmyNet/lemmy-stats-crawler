@@ -1,14 +1,14 @@
 use anyhow::Error;
-use serde::Serialize;
-use lemmy_stats_crawler::START_INSTANCES;
 use lemmy_stats_crawler::crawl::{crawl, InstanceDetails};
+use lemmy_stats_crawler::{MAX_CRAWL_DEPTH, START_INSTANCES};
+use serde::Serialize;
 
 #[tokio::main]
 pub async fn main() -> Result<(), Error> {
     let start_instances = START_INSTANCES.iter().map(|s| s.to_string()).collect();
 
     eprintln!("Crawling...");
-    let instance_details = crawl(start_instances).await?;
+    let instance_details = crawl(start_instances, MAX_CRAWL_DEPTH).await?;
     let total_stats = aggregate(instance_details);
 
     println!("{}", serde_json::to_string(&total_stats)?);
