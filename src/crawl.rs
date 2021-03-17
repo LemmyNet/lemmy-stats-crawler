@@ -10,13 +10,14 @@ use std::collections::VecDeque;
 pub async fn crawl(
     start_instances: Vec<String>,
     max_depth: i32,
-) -> Result<Vec<InstanceDetails>, Error> {
+) -> Result<(Vec<InstanceDetails>, i32), Error> {
     let mut pending_instances: VecDeque<CrawlInstance> = start_instances
         .iter()
         .map(|s| CrawlInstance::new(s.to_string(), 0))
         .collect();
     let mut crawled_instances = vec![];
     let mut instance_details = vec![];
+    let mut failed_instances = 0;
     while let Some(current_instance) = pending_instances.pop_back() {
         crawled_instances.push(current_instance.domain.clone());
         if current_instance.depth > max_depth {
@@ -34,11 +35,14 @@ pub async fn crawl(
                     }
                 }
             }
-            Err(e) => eprintln!("Failed to crawl {}: {}", current_instance.domain, e),
+            Err(e) => {
+                failed_instances += 1;
+                eprintln!("Failed to crawl {}: {}", current_instance.domain, e)
+            },
         }
     }
 
-    Ok(instance_details)
+    Ok((instance_details, failed_instances))
 }
 
 #[derive(Serialize, Clone)]

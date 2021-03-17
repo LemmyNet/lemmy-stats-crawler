@@ -32,8 +32,8 @@ pub async fn main() -> Result<(), Error> {
     let start_instances = trusted_instances.iter().map(|s| s.to_string()).collect();
 
     eprintln!("Crawling...");
-    let instance_details = crawl(start_instances, max_crawl_depth).await?;
-    let total_stats = aggregate(instance_details);
+    let (instance_details, failed_instances) = crawl(start_instances, max_crawl_depth).await?;
+    let total_stats = aggregate(instance_details, failed_instances);
 
     println!("{}", serde_json::to_string_pretty(&total_stats)?);
     Ok(())
@@ -41,23 +41,25 @@ pub async fn main() -> Result<(), Error> {
 
 #[derive(Serialize)]
 struct TotalStats {
-    total_instances: i32,
+    crawled_instances: i32,
+    failed_instances: i32,
     total_users: i64,
     total_online_users: i32,
     instance_details: Vec<InstanceDetails>,
 }
 
-fn aggregate(instance_details: Vec<InstanceDetails>) -> TotalStats {
-    let mut total_instances = 0;
+fn aggregate(instance_details: Vec<InstanceDetails>, failed_instances: i32) -> TotalStats {
+    let mut crawled_instances = 0;
     let mut total_users = 0;
     let mut total_online_users = 0;
     for i in &instance_details {
-        total_instances += 1;
+        crawled_instances += 1;
         total_users += i.total_users;
         total_online_users += i.online_users;
     }
     TotalStats {
-        total_instances,
+        crawled_instances,
+        failed_instances,
         total_users,
         total_online_users,
         instance_details,
