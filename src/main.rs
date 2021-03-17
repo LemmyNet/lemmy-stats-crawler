@@ -35,7 +35,7 @@ pub async fn main() -> Result<(), Error> {
     let instance_details = crawl(start_instances, max_crawl_depth).await?;
     let total_stats = aggregate(instance_details);
 
-    println!("{}", serde_json::to_string(&total_stats)?);
+    println!("{}", serde_json::to_string_pretty(&total_stats)?);
     Ok(())
 }
 
