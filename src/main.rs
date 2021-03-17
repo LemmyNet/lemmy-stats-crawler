@@ -18,18 +18,16 @@ pub async fn main() -> Result<(), Error> {
                 .takes_value(true),
         )
         .get_matches();
-    let trusted_instances: Vec<String> = matches
+    let start_instances: Vec<String> = matches
         .value_of("start-instances")
         .unwrap_or(DEFAULT_START_INSTANCES)
-        .split(",")
+        .split(',')
         .map(|s| s.to_string())
         .collect();
     let max_crawl_depth: i32 = matches
         .value_of("max-crawl-depth")
         .unwrap_or(DEFAULT_MAX_CRAWL_DEPTH)
         .parse()?;
-
-    let start_instances = trusted_instances.iter().map(|s| s.to_string()).collect();
 
     eprintln!("Crawling...");
     let (instance_details, failed_instances) = crawl(start_instances, max_crawl_depth).await?;

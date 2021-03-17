@@ -38,7 +38,7 @@ pub async fn crawl(
             Err(e) => {
                 failed_instances += 1;
                 eprintln!("Failed to crawl {}: {}", current_instance.domain, e)
-            },
+            }
         }
     }
 
@@ -89,7 +89,7 @@ async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> 
     let linked_instances = site_info
         .federated_instances
         .map(|f| f.linked)
-        .unwrap_or(vec![]);
+        .unwrap_or_default();
     Ok(InstanceDetails {
         domain: domain.to_owned(),
         name: site_info.site_view.site.name,
