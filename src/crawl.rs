@@ -42,6 +42,10 @@ pub async fn crawl(
         }
     }
 
+    // Sort by active monthly users descending
+    instance_details.sort_by_key(|i| i.users_active_month);
+    instance_details.reverse();
+    
     Ok((instance_details, failed_instances))
 }
 
