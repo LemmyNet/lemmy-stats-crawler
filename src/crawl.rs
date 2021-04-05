@@ -79,7 +79,7 @@ async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> 
     let node_info_url = format!("https://{}/nodeinfo/2.0.json", domain);
     let node_info_request = client.get(&node_info_url).timeout(REQUEST_TIMEOUT).send();
 
-    let site_info_url = format!("https://{}/api/v2/site", domain);
+    let site_info_url = format!("https://{}/api/v3/site", domain);
     let site_info_request = client.get(&site_info_url).timeout(REQUEST_TIMEOUT).send();
 
     let (node_info, site_info) = try_join!(node_info_request, site_info_request)?;
