@@ -1,6 +1,7 @@
 use crate::federated_instances::GetSiteResponse;
 use crate::node_info::NodeInfo;
 use crate::REQUEST_TIMEOUT;
+use anyhow::anyhow;
 use anyhow::Error;
 use futures::try_join;
 use reqwest::Client;
@@ -79,12 +80,32 @@ async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> 
     let node_info_url = format!("https://{}/nodeinfo/2.0.json", domain);
     let node_info_request = client.get(&node_info_url).timeout(REQUEST_TIMEOUT).send();
 
-    let site_info_url = format!("https://{}/api/v3/site", domain);
-    let site_info_request = client.get(&site_info_url).timeout(REQUEST_TIMEOUT).send();
+    let site_info_url_v2 = format!("https://{}/api/v2/site", domain);
+    let site_info_request_v2 = client
+        .get(&site_info_url_v2)
+        .timeout(REQUEST_TIMEOUT)
+        .send();
+    let site_info_url_v3 = format!("https://{}/api/v3/site", domain);
+    let site_info_request_v3 = client
+        .get(&site_info_url_v3)
+        .timeout(REQUEST_TIMEOUT)
+        .send();
 
-    let (node_info, site_info) = try_join!(node_info_request, site_info_request)?;
+    let (node_info, site_info_v2, site_info_v3) = try_join!(
+        node_info_request,
+        site_info_request_v2,
+        site_info_request_v3
+    )?;
     let node_info: NodeInfo = node_info.json().await?;
-    let site_info: GetSiteResponse = site_info.json().await?;
+    let site_info_v2 = site_info_v2.json::<GetSiteResponse>().await.ok();
+    let site_info_v3 = site_info_v3.json::<GetSiteResponse>().await.ok();
+    let site_info: GetSiteResponse = if let Some(site_info_v2) = site_info_v2 {
+        site_info_v2
+    } else if let Some(site_info_v3) = site_info_v3 {
+        site_info_v3
+    } else {
+        return Err(anyhow!("Failed to read site_info"));
+    };
 
     let linked_instances = site_info
         .federated_instances
