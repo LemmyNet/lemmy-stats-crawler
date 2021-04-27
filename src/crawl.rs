@@ -1,6 +1,6 @@
 use crate::federated_instances::GetSiteResponse;
 use crate::node_info::NodeInfo;
-use crate::REQUEST_TIMEOUT;
+use crate::{EXCLUDE_INSTANCES, REQUEST_TIMEOUT};
 use anyhow::anyhow;
 use anyhow::Error;
 use futures::try_join;
@@ -21,7 +21,9 @@ pub async fn crawl(
     let mut failed_instances = 0;
     while let Some(current_instance) = pending_instances.pop_back() {
         crawled_instances.push(current_instance.domain.clone());
-        if current_instance.depth > max_depth {
+        if current_instance.depth > max_depth
+            || EXCLUDE_INSTANCES.contains(&&**&current_instance.domain)
+        {
             continue;
         }
         match fetch_instance_details(&current_instance.domain).await {
