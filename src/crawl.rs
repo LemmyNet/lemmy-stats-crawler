@@ -50,6 +50,7 @@ pub async fn crawl(
 pub struct InstanceDetails {
     pub domain: String,
     pub name: String,
+    pub description: Option<String>,
     pub version: String,
     pub icon: Option<String>,
     pub online_users: i32,
@@ -99,13 +100,19 @@ async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> 
     let node_info: NodeInfo = node_info.json().await?;
     let site_info_v2 = site_info_v2.json::<GetSiteResponse>().await.ok();
     let site_info_v3 = site_info_v3.json::<GetSiteResponse>().await.ok();
-    let site_info: GetSiteResponse = if let Some(site_info_v2) = site_info_v2 {
+    let mut site_info: GetSiteResponse = if let Some(site_info_v2) = site_info_v2 {
         site_info_v2
     } else if let Some(site_info_v3) = site_info_v3 {
         site_info_v3
     } else {
         return Err(anyhow!("Failed to read site_info"));
     };
+
+    if let Some(description) = &site_info.site_view.site.description {
+        if description.len() > 150 {
+            site_info.site_view.site.description = None;
+        }
+    }
 
     let linked_instances = site_info
         .federated_instances
@@ -114,6 +121,7 @@ async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> 
     Ok(InstanceDetails {
         domain: domain.to_owned(),
         name: site_info.site_view.site.name,
+        description: site_info.site_view.site.description,
         version: node_info.software.version,
         icon: site_info.site_view.site.icon,
         online_users: site_info.online as i32,

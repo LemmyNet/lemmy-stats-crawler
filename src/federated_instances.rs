@@ -23,4 +23,5 @@ pub struct SiteView {
 pub struct Site {
     pub name: String,
     pub icon: Option<String>,
+    pub description: Option<String>,
 }
