@@ -1,7 +1,7 @@
 use anyhow::Error;
 use clap::{App, Arg};
 use lemmy_stats_crawler::crawl::{crawl, InstanceDetails};
-use lemmy_stats_crawler::{DEFAULT_MAX_CRAWL_DEPTH, DEFAULT_START_INSTANCES};
+use lemmy_stats_crawler::{DEFAULT_MAX_CRAWL_DEPTH, DEFAULT_START_INSTANCES, EXCLUDE_INSTANCES};
 use serde::Serialize;
 
 #[tokio::main]
@@ -12,6 +12,7 @@ pub async fn main() -> Result<(), Error> {
                 .long("start-instances")
                 .takes_value(true),
         )
+        .arg(Arg::with_name("exclude").long("exclude").takes_value(true))
         .arg(
             Arg::with_name("max-crawl-depth")
                 .long("max-crawl-depth")
@@ -22,7 +23,13 @@ pub async fn main() -> Result<(), Error> {
         .value_of("start-instances")
         .unwrap_or(DEFAULT_START_INSTANCES)
         .split(',')
-        .map(|s| s.to_string())
+        .map(|s| s.trim().to_string())
+        .collect();
+    let exclude: Vec<String> = matches
+        .value_of("exclude")
+        .unwrap_or(EXCLUDE_INSTANCES)
+        .split(',')
+        .map(|s| s.trim().to_string())
         .collect();
     let max_crawl_depth: i32 = matches
         .value_of("max-crawl-depth")
@@ -30,7 +37,8 @@ pub async fn main() -> Result<(), Error> {
         .parse()?;
 
     eprintln!("Crawling...");
-    let (instance_details, failed_instances) = crawl(start_instances, max_crawl_depth).await?;
+    let (instance_details, failed_instances) =
+        crawl(start_instances, exclude, max_crawl_depth).await?;
     let total_stats = aggregate(instance_details, failed_instances);
 
     println!("{}", serde_json::to_string_pretty(&total_stats)?);

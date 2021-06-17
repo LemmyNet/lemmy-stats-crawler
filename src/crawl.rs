@@ -1,6 +1,6 @@
 use crate::federated_instances::GetSiteResponse;
 use crate::node_info::NodeInfo;
-use crate::{EXCLUDE_INSTANCES, REQUEST_TIMEOUT};
+use crate::REQUEST_TIMEOUT;
 use anyhow::anyhow;
 use anyhow::Error;
 use futures::try_join;
@@ -10,6 +10,7 @@ use std::collections::VecDeque;
 
 pub async fn crawl(
     start_instances: Vec<String>,
+    exclude: Vec<String>,
     max_depth: i32,
 ) -> Result<(Vec<InstanceDetails>, i32), Error> {
     let mut pending_instances: VecDeque<CrawlInstance> = start_instances
@@ -21,9 +22,7 @@ pub async fn crawl(
     let mut failed_instances = 0;
     while let Some(current_instance) = pending_instances.pop_back() {
         crawled_instances.push(current_instance.domain.clone());
-        if current_instance.depth > max_depth
-            || EXCLUDE_INSTANCES.contains(&&**&current_instance.domain)
-        {
+        if current_instance.depth > max_depth || exclude.contains(&current_instance.domain) {
             continue;
         }
         match fetch_instance_details(&current_instance.domain).await {
@@ -48,7 +47,7 @@ pub async fn crawl(
     // Sort by active monthly users descending
     instance_details.sort_by_key(|i| i.users_active_month);
     instance_details.reverse();
-    
+
     Ok((instance_details, failed_instances))
 }
 
