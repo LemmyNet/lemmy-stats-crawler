@@ -64,6 +64,7 @@ pub struct InstanceDetails {
     pub users_active_month: i64,
     pub open_registrations: bool,
     pub linked_instances_count: i32,
+    pub require_application: bool,
     // The following fields are only used for aggregation, but not shown in output
     #[serde(skip)]
     pub linked_instances: Vec<String>,
@@ -135,6 +136,7 @@ async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> 
         users_active_month: node_info.usage.users.active_month,
         open_registrations: node_info.open_registrations,
         linked_instances_count: linked_instances.len() as i32,
+        require_application: site_info.site_view.site.require_application.unwrap_or(false),
         linked_instances,
     })
 }
