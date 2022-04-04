@@ -24,5 +24,5 @@ pub struct Site {
     pub name: String,
     pub icon: Option<String>,
     pub description: Option<String>,
-    pub require_application: Option<bool>
+    pub require_application: Option<bool>,
 }

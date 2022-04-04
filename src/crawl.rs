@@ -120,10 +120,18 @@ async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> 
         }
     }
 
-    let linked_instances = site_info
+    let require_application = site_info
+        .site_view
+        .site
+        .require_application
+        .unwrap_or(false);
+    let linked_instances: Vec<String> = site_info
         .federated_instances
         .map(|f| f.linked)
-        .unwrap_or_default();
+        .unwrap_or_default()
+        .iter()
+        .map(|l| l.to_lowercase())
+        .collect();
     Ok(InstanceDetails {
         domain: domain.to_owned(),
         name: site_info.site_view.site.name,
@@ -136,7 +144,7 @@ async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> 
         users_active_month: node_info.usage.users.active_month,
         open_registrations: node_info.open_registrations,
         linked_instances_count: linked_instances.len() as i32,
-        require_application: site_info.site_view.site.require_application.unwrap_or(false),
+        require_application,
         linked_instances,
     })
 }
