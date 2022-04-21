@@ -4,9 +4,13 @@ use crate::REQUEST_TIMEOUT;
 use anyhow::anyhow;
 use anyhow::Error;
 use futures::try_join;
+use once_cell::sync::Lazy;
 use reqwest::Client;
+use semver::Version;
 use serde::Serialize;
 use std::collections::VecDeque;
+
+static CLIENT: Lazy<Client> = Lazy::new(Client::default);
 
 pub async fn crawl(
     start_instances: Vec<String>,
@@ -17,6 +21,7 @@ pub async fn crawl(
         .iter()
         .map(|s| CrawlInstance::new(s.to_string(), 0))
         .collect();
+    let min_lemmy_version = min_lemmy_version().await?;
     let mut crawled_instances = vec![];
     let mut instance_details = vec![];
     let mut failed_instances = 0;
@@ -25,7 +30,7 @@ pub async fn crawl(
         if current_instance.depth > max_depth || exclude.contains(&current_instance.domain) {
             continue;
         }
-        match fetch_instance_details(&current_instance.domain).await {
+        match fetch_instance_details(&current_instance.domain, &min_lemmy_version).await {
             Ok(details) => {
                 instance_details.push(details.to_owned());
                 for i in details.linked_instances {
@@ -81,7 +86,10 @@ impl CrawlInstance {
     }
 }
 
-async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> {
+async fn fetch_instance_details(
+    domain: &str,
+    min_lemmy_version: &Version,
+) -> Result<InstanceDetails, Error> {
     let client = Client::default();
 
     let node_info_url = format!("https://{}/nodeinfo/2.0.json", domain);
@@ -104,6 +112,13 @@ async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> 
         site_info_request_v3
     )?;
     let node_info: NodeInfo = node_info.json().await?;
+    if node_info.software.name != "lemmy" {
+        return Err(anyhow!("not a lemmy instance"));
+    }
+    let version = Version::parse(&node_info.software.version)?;
+    if &version < min_lemmy_version {
+        return Err(anyhow!("lemmy version is too old ({})", version));
+    }
     let site_info_v2 = site_info_v2.json::<GetSiteResponse>().await.ok();
     let site_info_v3 = site_info_v3.json::<GetSiteResponse>().await.ok();
     let mut site_info: GetSiteResponse = if let Some(site_info_v2) = site_info_v2 {
@@ -147,4 +162,19 @@ async fn fetch_instance_details(domain: &str) -> Result<InstanceDetails, Error> 
         require_application,
         linked_instances,
     })
+}
+
+/// calculate minimum allowed lemmy version based on current version. in case of current version
+/// 0.16.3, the minimum from this function is 0.15.3. this is to avoid rejecting all instances on
+/// the previous version when a major lemmy release is published.
+async fn min_lemmy_version() -> Result<Version, Error> {
+    let lemmy_version_url = "https://raw.githubusercontent.com/LemmyNet/lemmy-ansible/main/VERSION";
+    let req = CLIENT
+        .get(lemmy_version_url)
+        .timeout(REQUEST_TIMEOUT)
+        .send()
+        .await?;
+    let mut version = Version::parse(req.text().await?.trim())?;
+    version.minor -= 1;
+    Ok(version)
 }
