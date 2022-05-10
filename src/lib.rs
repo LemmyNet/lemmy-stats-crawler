@@ -1,9 +1,74 @@
+#[macro_use]
+extern crate derive_new;
+
+use crate::crawl::{CrawlJob, CrawlParams, InstanceDetails};
+use anyhow::Error;
+use futures::future::join_all;
+use once_cell::sync::Lazy;
+use reqwest::Client;
+use semver::Version;
+use std::collections::HashSet;
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Mutex;
 
 pub mod crawl;
+pub mod defaults;
 
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
-pub const DEFAULT_START_INSTANCES: &str = "lemmy.ml";
-pub const DEFAULT_MAX_CRAWL_DEPTH: &str = "20";
-pub const EXCLUDE_INSTANCES: &str =
-    "ds9.lemmy.ml, enterprise.lemmy.ml, voyager.lemmy.ml, test.lemmy.ml";
+
+static CLIENT: Lazy<Client> = Lazy::new(Client::default);
+
+pub async fn start_crawl(
+    start_instances: Vec<String>,
+    exclude_domains: Vec<String>,
+    max_depth: i32,
+) -> Result<Vec<InstanceDetails>, Error> {
+    let params = Arc::new(CrawlParams::new(
+        min_lemmy_version().await?,
+        exclude_domains,
+        max_depth,
+        Arc::new(Mutex::new(HashSet::new())),
+    ));
+    let mut jobs = vec![];
+    for domain in start_instances.into_iter() {
+        let job = CrawlJob::new(domain, 0, params.clone());
+        jobs.push(job.crawl());
+    }
+
+    // TODO: optionally log the errors
+    let mut instance_details: Vec<InstanceDetails> = join_all(jobs)
+        .await
+        .into_iter()
+        .filter_map(|r| r.ok())
+        .flat_map(|r| r.into_iter())
+        .filter_map(|r| r.ok())
+        .collect();
+
+    // Sort by active monthly users descending
+    instance_details.sort_unstable_by_key(|i| {
+        i.site_info
+            .site_view
+            .as_ref()
+            .map(|s| s.counts.users_active_month)
+            .unwrap_or(0)
+    });
+    instance_details.reverse();
+
+    Ok(instance_details)
+}
+
+/// calculate minimum allowed lemmy version based on current version. in case of current version
+/// 0.16.3, the minimum from this function is 0.15.3. this is to avoid rejecting all instances on
+/// the previous version when a major lemmy release is published.
+async fn min_lemmy_version() -> Result<Version, Error> {
+    let lemmy_version_url = "https://raw.githubusercontent.com/LemmyNet/lemmy-ansible/main/VERSION";
+    let req = CLIENT
+        .get(lemmy_version_url)
+        .timeout(REQUEST_TIMEOUT)
+        .send()
+        .await?;
+    let mut version = Version::parse(req.text().await?.trim())?;
+    version.minor -= 1;
+    Ok(version)
+}

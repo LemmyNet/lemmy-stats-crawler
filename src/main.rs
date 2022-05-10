@@ -1,7 +1,10 @@
 use anyhow::Error;
 use clap::{Arg, Command};
-use lemmy_stats_crawler::crawl::{crawl, InstanceDetails};
-use lemmy_stats_crawler::{DEFAULT_MAX_CRAWL_DEPTH, DEFAULT_START_INSTANCES, EXCLUDE_INSTANCES};
+use lemmy_stats_crawler::crawl::InstanceDetails;
+use lemmy_stats_crawler::defaults::{
+    DEFAULT_MAX_CRAWL_DEPTH, DEFAULT_START_INSTANCES, EXCLUDE_INSTANCES,
+};
+use lemmy_stats_crawler::start_crawl;
 use serde::Serialize;
 
 #[tokio::main]
@@ -37,9 +40,8 @@ pub async fn main() -> Result<(), Error> {
         .parse()?;
 
     eprintln!("Crawling...");
-    let (instance_details, failed_instances) =
-        crawl(start_instances, exclude, max_crawl_depth).await?;
-    let total_stats = aggregate(instance_details, failed_instances);
+    let instance_details = start_crawl(start_instances, exclude, max_crawl_depth).await?;
+    let total_stats = aggregate(instance_details);
 
     println!("{}", serde_json::to_string_pretty(&total_stats)?);
     Ok(())
@@ -48,7 +50,6 @@ pub async fn main() -> Result<(), Error> {
 #[derive(Serialize)]
 struct TotalStats {
     crawled_instances: i32,
-    failed_instances: i32,
     online_users: usize,
     total_users: i64,
     users_active_day: i64,
@@ -58,7 +59,7 @@ struct TotalStats {
     instance_details: Vec<InstanceDetails>,
 }
 
-fn aggregate(instance_details: Vec<InstanceDetails>, failed_instances: i32) -> TotalStats {
+fn aggregate(instance_details: Vec<InstanceDetails>) -> TotalStats {
     let mut online_users = 0;
     let mut total_users = 0;
     let mut users_active_day = 0;
@@ -79,7 +80,6 @@ fn aggregate(instance_details: Vec<InstanceDetails>, failed_instances: i32) -> T
     }
     TotalStats {
         crawled_instances,
-        failed_instances,
         online_users,
         total_users,
         users_active_day,
