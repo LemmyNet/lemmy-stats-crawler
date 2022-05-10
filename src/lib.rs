@@ -13,7 +13,6 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 
 pub mod crawl;
-pub mod defaults;
 
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -22,12 +21,12 @@ static CLIENT: Lazy<Client> = Lazy::new(Client::default);
 pub async fn start_crawl(
     start_instances: Vec<String>,
     exclude_domains: Vec<String>,
-    max_depth: i32,
+    max_distance: i32,
 ) -> Result<Vec<InstanceDetails>, Error> {
     let params = Arc::new(CrawlParams::new(
         min_lemmy_version().await?,
         exclude_domains,
-        max_depth,
+        max_distance,
         Arc::new(Mutex::new(HashSet::new())),
     ));
     let mut jobs = vec![];
@@ -36,12 +35,11 @@ pub async fn start_crawl(
         jobs.push(job.crawl());
     }
 
-    // TODO: optionally log the errors
+    // TODO: log the errors
     let mut instance_details: Vec<InstanceDetails> = join_all(jobs)
         .await
         .into_iter()
-        .filter_map(|r| r.ok())
-        .flat_map(|r| r.into_iter())
+        .flatten()
         .filter_map(|r| r.ok())
         .collect();
 
