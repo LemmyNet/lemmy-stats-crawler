@@ -5,7 +5,7 @@ use crate::crawl::{CrawlJob, CrawlParams, InstanceDetails};
 use anyhow::Error;
 use futures::future::join_all;
 use once_cell::sync::Lazy;
-use reqwest::Client;
+use reqwest::{Client, ClientBuilder};
 use semver::Version;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -14,9 +14,15 @@ use tokio::sync::Mutex;
 
 pub mod crawl;
 
-pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
-static CLIENT: Lazy<Client> = Lazy::new(Client::default);
+static CLIENT: Lazy<Client> = Lazy::new(|| {
+    ClientBuilder::new()
+        .timeout(REQUEST_TIMEOUT)
+        .user_agent("lemmy-stats-crawler")
+        .build()
+        .unwrap()
+});
 
 pub async fn start_crawl(
     start_instances: Vec<String>,

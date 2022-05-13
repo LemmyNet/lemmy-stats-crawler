@@ -1,5 +1,4 @@
 use crate::CLIENT;
-use crate::REQUEST_TIMEOUT;
 use anyhow::Error;
 use async_recursion::async_recursion;
 use futures::future::join_all;
@@ -52,7 +51,10 @@ impl CrawlJob {
             return vec![];
         }
 
-        debug!("Starting crawl for {}, distance {}", &self.domain, &self.current_distance);
+        debug!(
+            "Starting crawl for {}, distance {}",
+            &self.domain, &self.current_distance
+        );
         let site_info = match self.fetch_instance_details().await {
             Ok(o) => o,
             Err(e) => return vec![Err(e)],
@@ -65,8 +67,11 @@ impl CrawlJob {
         let mut result = vec![];
         if let Some(federated) = &site_info.0.federated_instances {
             for domain in federated.linked.iter() {
-                let crawl_job =
-                    CrawlJob::new(domain.clone(), self.current_distance + 1, self.params.clone());
+                let crawl_job = CrawlJob::new(
+                    domain.clone(),
+                    self.current_distance + 1,
+                    self.params.clone(),
+                );
                 result.push(crawl_job.crawl());
             }
         }
@@ -86,7 +91,6 @@ impl CrawlJob {
         let site_info_url = format!("https://{}/api/v3/site", &self.domain);
         let site_info = CLIENT
             .get(&site_info_url)
-            .timeout(REQUEST_TIMEOUT)
             .send()
             .await?
             .json::<GetSiteResponse>()

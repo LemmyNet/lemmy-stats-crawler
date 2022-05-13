@@ -9,7 +9,11 @@ use structopt::StructOpt;
 struct Parameters {
     #[structopt(short, long, default_value = "lemmy.ml")]
     start_instances: Vec<String>,
-    #[structopt(short, long, default_value = "ds9.lemmy.ml, enterprise.lemmy.ml, voyager.lemmy.ml, test.lemmy.ml")]
+    #[structopt(
+        short,
+        long,
+        default_value = "ds9.lemmy.ml, enterprise.lemmy.ml, voyager.lemmy.ml, test.lemmy.ml"
+    )]
     exclude_instances: Vec<String>,
     #[structopt(short, long, default_value = "20")]
     max_crawl_distance: i32,
