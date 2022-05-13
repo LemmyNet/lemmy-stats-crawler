@@ -1,9 +1,7 @@
-use crate::federated_instances::GetSiteResponse;
-use crate::node_info::NodeInfo;
 use crate::REQUEST_TIMEOUT;
 use anyhow::anyhow;
 use anyhow::Error;
-use futures::try_join;
+use lemmy_api_common::site::GetSiteResponse;
 use once_cell::sync::Lazy;
 use reqwest::Client;
 use semver::Version;
@@ -32,15 +30,17 @@ pub async fn crawl(
         }
         match fetch_instance_details(&current_instance.domain, &min_lemmy_version).await {
             Ok(details) => {
-                instance_details.push(details.to_owned());
-                for i in details.linked_instances {
-                    let is_in_crawled = crawled_instances.contains(&i);
-                    let is_in_pending = pending_instances.iter().any(|p| p.domain == i);
-                    if !is_in_crawled && !is_in_pending {
-                        let ci = CrawlInstance::new(i, current_instance.depth + 1);
-                        pending_instances.push_back(ci);
+                if let Some(federated) = &details.site_info.federated_instances.as_ref() {
+                    for i in &federated.linked {
+                        let is_in_crawled = crawled_instances.contains(i);
+                        let is_in_pending = pending_instances.iter().any(|p| &p.domain == i);
+                        if !is_in_crawled && !is_in_pending {
+                            let ci = CrawlInstance::new(i.clone(), current_instance.depth + 1);
+                            pending_instances.push_back(ci);
+                        }
                     }
                 }
+                instance_details.push(details);
             }
             Err(e) => {
                 failed_instances += 1;
@@ -50,29 +50,22 @@ pub async fn crawl(
     }
 
     // Sort by active monthly users descending
-    instance_details.sort_by_key(|i| i.users_active_month);
+    instance_details.sort_by_key(|i| {
+        i.site_info
+            .site_view
+            .as_ref()
+            .map(|s| s.counts.users_active_month)
+            .unwrap_or(0)
+    });
     instance_details.reverse();
 
     Ok((instance_details, failed_instances))
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Debug)]
 pub struct InstanceDetails {
     pub domain: String,
-    pub name: String,
-    pub description: Option<String>,
-    pub version: String,
-    pub icon: Option<String>,
-    pub online_users: i32,
-    pub total_users: i64,
-    pub users_active_halfyear: i64,
-    pub users_active_month: i64,
-    pub open_registrations: bool,
-    pub linked_instances_count: i32,
-    pub require_application: bool,
-    // The following fields are only used for aggregation, but not shown in output
-    #[serde(skip)]
-    pub linked_instances: Vec<String>,
+    pub site_info: GetSiteResponse,
 }
 
 struct CrawlInstance {
@@ -92,75 +85,23 @@ async fn fetch_instance_details(
 ) -> Result<InstanceDetails, Error> {
     let client = Client::default();
 
-    let node_info_url = format!("https://{}/nodeinfo/2.0.json", domain);
-    let node_info_request = client.get(&node_info_url).timeout(REQUEST_TIMEOUT).send();
-
-    let site_info_url_v2 = format!("https://{}/api/v2/site", domain);
-    let site_info_request_v2 = client
-        .get(&site_info_url_v2)
+    let site_info_url = format!("https://{}/api/v3/site", domain);
+    let site_info = client
+        .get(&site_info_url)
         .timeout(REQUEST_TIMEOUT)
-        .send();
-    let site_info_url_v3 = format!("https://{}/api/v3/site", domain);
-    let site_info_request_v3 = client
-        .get(&site_info_url_v3)
-        .timeout(REQUEST_TIMEOUT)
-        .send();
+        .send()
+        .await?
+        .json::<GetSiteResponse>()
+        .await?;
 
-    let (node_info, site_info_v2, site_info_v3) = try_join!(
-        node_info_request,
-        site_info_request_v2,
-        site_info_request_v3
-    )?;
-    let node_info: NodeInfo = node_info.json().await?;
-    if node_info.software.name != "lemmy" {
-        return Err(anyhow!("not a lemmy instance"));
-    }
-    let version = Version::parse(&node_info.software.version)?;
+    let version = Version::parse(&site_info.version)?;
     if &version < min_lemmy_version {
         return Err(anyhow!("lemmy version is too old ({})", version));
     }
-    let site_info_v2 = site_info_v2.json::<GetSiteResponse>().await.ok();
-    let site_info_v3 = site_info_v3.json::<GetSiteResponse>().await.ok();
-    let mut site_info: GetSiteResponse = if let Some(site_info_v2) = site_info_v2 {
-        site_info_v2
-    } else if let Some(site_info_v3) = site_info_v3 {
-        site_info_v3
-    } else {
-        return Err(anyhow!("Failed to read site_info"));
-    };
 
-    if let Some(description) = &site_info.site_view.site.description {
-        if description.len() > 150 {
-            site_info.site_view.site.description = None;
-        }
-    }
-
-    let require_application = site_info
-        .site_view
-        .site
-        .require_application
-        .unwrap_or(false);
-    let linked_instances: Vec<String> = site_info
-        .federated_instances
-        .map(|f| f.linked)
-        .unwrap_or_default()
-        .iter()
-        .map(|l| l.to_lowercase())
-        .collect();
     Ok(InstanceDetails {
         domain: domain.to_owned(),
-        name: site_info.site_view.site.name,
-        description: site_info.site_view.site.description,
-        version: node_info.software.version,
-        icon: site_info.site_view.site.icon,
-        online_users: site_info.online as i32,
-        total_users: node_info.usage.users.total,
-        users_active_halfyear: node_info.usage.users.active_halfyear,
-        users_active_month: node_info.usage.users.active_month,
-        open_registrations: node_info.open_registrations,
-        linked_instances_count: linked_instances.len() as i32,
-        require_application,
-        linked_instances,
+        site_info,
     })
 }
 

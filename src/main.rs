@@ -1,20 +1,20 @@
 use anyhow::Error;
-use clap::{App, Arg};
+use clap::{Arg, Command};
 use lemmy_stats_crawler::crawl::{crawl, InstanceDetails};
 use lemmy_stats_crawler::{DEFAULT_MAX_CRAWL_DEPTH, DEFAULT_START_INSTANCES, EXCLUDE_INSTANCES};
 use serde::Serialize;
 
 #[tokio::main]
 pub async fn main() -> Result<(), Error> {
-    let matches = App::new("Lemmy Stats Crawler")
+    let matches = Command::new("Lemmy Stats Crawler")
         .arg(
-            Arg::with_name("start-instances")
+            Arg::new("start-instances")
                 .long("start-instances")
                 .takes_value(true),
         )
-        .arg(Arg::with_name("exclude").long("exclude").takes_value(true))
+        .arg(Arg::new("exclude").long("exclude").takes_value(true))
         .arg(
-            Arg::with_name("max-crawl-depth")
+            Arg::new("max-crawl-depth")
                 .long("max-crawl-depth")
                 .takes_value(true),
         )
@@ -49,25 +49,43 @@ pub async fn main() -> Result<(), Error> {
 struct TotalStats {
     crawled_instances: i32,
     failed_instances: i32,
+    online_users: usize,
     total_users: i64,
-    total_online_users: i32,
+    users_active_day: i64,
+    users_active_week: i64,
+    users_active_month: i64,
+    users_active_halfyear: i64,
     instance_details: Vec<InstanceDetails>,
 }
 
 fn aggregate(instance_details: Vec<InstanceDetails>, failed_instances: i32) -> TotalStats {
-    let mut crawled_instances = 0;
+    let mut online_users = 0;
     let mut total_users = 0;
-    let mut total_online_users = 0;
+    let mut users_active_day = 0;
+    let mut users_active_week = 0;
+    let mut users_active_month = 0;
+    let mut users_active_halfyear = 0;
+    let mut crawled_instances = 0;
     for i in &instance_details {
         crawled_instances += 1;
-        total_users += i.total_users;
-        total_online_users += i.online_users;
+        online_users += i.site_info.online;
+        if let Some(site_view) = &i.site_info.site_view {
+            total_users += site_view.counts.users;
+            users_active_day += site_view.counts.users_active_day;
+            users_active_week += site_view.counts.users_active_week;
+            users_active_month += site_view.counts.users_active_month;
+            users_active_halfyear += site_view.counts.users_active_half_year;
+        }
     }
     TotalStats {
         crawled_instances,
         failed_instances,
+        online_users,
         total_users,
-        total_online_users,
+        users_active_day,
+        users_active_week,
+        users_active_halfyear,
+        users_active_month,
         instance_details,
     }
 }
