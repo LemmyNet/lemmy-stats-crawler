@@ -7,12 +7,13 @@ use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
 #[structopt()]
 struct Parameters {
-    #[structopt(short, long, default_value = "lemmy.ml")]
+    #[structopt(short, long, use_delimiter = true, default_value = "lemmy.ml")]
     start_instances: Vec<String>,
     #[structopt(
         short,
         long,
-        default_value = "ds9.lemmy.ml, enterprise.lemmy.ml, voyager.lemmy.ml, test.lemmy.ml"
+        use_delimiter = true,
+        default_value = "ds9.lemmy.ml,enterprise.lemmy.ml,voyager.lemmy.ml,test.lemmy.ml"
     )]
     exclude_instances: Vec<String>,
     #[structopt(short, long, default_value = "20")]
