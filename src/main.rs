@@ -18,13 +18,9 @@ struct Parameters {
     exclude_instances: Vec<String>,
     #[structopt(short, long, default_value = "20")]
     max_crawl_distance: i32,
-
     /// Silence all output
     #[structopt(short, long)]
     quiet: bool,
-    /// Verbose mode (-v, -vv, -vvv, etc)
-    #[structopt(short = "v", long = "verbose", parse(from_occurrences))]
-    verbose: usize,
 }
 
 #[tokio::main]
@@ -34,7 +30,7 @@ pub async fn main() -> Result<(), Error> {
     stderrlog::new()
         .module(module_path!())
         .quiet(params.quiet)
-        .verbosity(params.verbose)
+        .verbosity(1)
         .init()?;
 
     eprintln!("Crawling...");
