@@ -10,6 +10,7 @@ use semver::Version;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
+use log::warn;
 use tokio::sync::Mutex;
 
 pub mod crawl;
@@ -46,6 +47,7 @@ pub async fn start_crawl(
         .await
         .into_iter()
         .flatten()
+        .inspect(|r| if let Err(e) = r { warn!("{}", e)})
         .filter_map(|r| r.ok())
         .collect();
 
