@@ -1,6 +1,5 @@
 use anyhow::Error;
-use lemmy_stats_crawler::crawl::InstanceDetails;
-use lemmy_stats_crawler::start_crawl;
+use lemmy_stats_crawler::{start_crawl, CrawlResult2};
 use serde::Serialize;
 use structopt::StructOpt;
 
@@ -57,10 +56,10 @@ struct TotalStats {
     users_active_week: i64,
     users_active_month: i64,
     users_active_halfyear: i64,
-    instance_details: Vec<InstanceDetails>,
+    instance_details: Vec<CrawlResult2>,
 }
 
-fn aggregate(instance_details: Vec<InstanceDetails>) -> TotalStats {
+fn aggregate(instance_details: Vec<CrawlResult2>) -> TotalStats {
     let mut online_users = 0;
     let mut total_users = 0;
     let mut users_active_day = 0;
