@@ -70,13 +70,12 @@ fn aggregate(instance_details: Vec<CrawlResult2>) -> TotalStats {
     for i in &instance_details {
         crawled_instances += 1;
         online_users += i.site_info.online;
-        if let Some(site_view) = &i.site_info.site_view {
-            total_users += site_view.counts.users;
-            users_active_day += site_view.counts.users_active_day;
-            users_active_week += site_view.counts.users_active_week;
-            users_active_month += site_view.counts.users_active_month;
-            users_active_halfyear += site_view.counts.users_active_half_year;
-        }
+        let counts = &i.site_info.site_view.counts;
+        total_users += counts.users;
+        users_active_day += counts.users_active_day;
+        users_active_week += counts.users_active_week;
+        users_active_month += counts.users_active_month;
+        users_active_halfyear += counts.users_active_half_year;
     }
     TotalStats {
         crawled_instances,

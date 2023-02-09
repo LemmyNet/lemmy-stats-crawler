@@ -69,10 +69,7 @@ pub async fn start_crawl(
     // Sort by active monthly users descending
     crawl_results.sort_unstable_by_key(|i| {
         i.site_info
-            .site_view
-            .as_ref()
-            .map(|s| s.counts.users_active_month)
-            .unwrap_or(0)
+            .site_view.counts.users_active_month
     });
     crawl_results.reverse();
     Ok(crawl_results)
@@ -126,11 +123,9 @@ fn calculate_federated_site_aggregates(
         } else {
             None
         };
-        // TODO: workaround because GetSiteResponse doesnt implement clone
-        let site_info = serde_json::from_str(&serde_json::to_string(&instance.1)?)?;
         ret.push(CrawlResult2 {
             domain: instance.0.clone(),
-            site_info,
+            site_info: instance.1.clone(),
             federated_counts,
         });
     }
