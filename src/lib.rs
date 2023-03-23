@@ -19,12 +19,14 @@ use tokio::sync::Mutex;
 pub mod crawl;
 mod node_info;
 
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 
 static CLIENT: Lazy<Client> = Lazy::new(|| {
     ClientBuilder::new()
         .timeout(REQUEST_TIMEOUT)
         .user_agent("lemmy-stats-crawler")
+        .pool_idle_timeout(Some(Duration::from_millis(100)))
+        .pool_max_idle_per_host(1)
         .build()
         .expect("build reqwest client")
 });
@@ -67,10 +69,7 @@ pub async fn start_crawl(
     let mut crawl_results = calculate_federated_site_aggregates(crawl_results)?;
 
     // Sort by active monthly users descending
-    crawl_results.sort_unstable_by_key(|i| {
-        i.site_info
-            .site_view.counts.users_active_month
-    });
+    crawl_results.sort_unstable_by_key(|i| i.site_info.site_view.counts.users_active_month);
     crawl_results.reverse();
     Ok(crawl_results)
 }

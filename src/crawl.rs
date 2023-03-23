@@ -10,6 +10,8 @@ use semver::Version;
 use std::collections::HashSet;
 use std::ops::Deref;
 use std::sync::Arc;
+use std::thread::sleep;
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 #[derive(new)]
@@ -102,6 +104,10 @@ impl CrawlJob {
     }
 
     async fn fetch_instance_details(&self) -> Result<(NodeInfo, Option<GetSiteResponse>), Error> {
+        // Wait a little while to slow down the crawling and avoid too many open connections, which
+        // results in "error trying to connect: dns error: Too many open files".
+        sleep(Duration::from_millis(10));
+
         let rel_node_info: Url = Url::parse("http://nodeinfo.diaspora.software/ns/schema/2.0")
             .expect("parse nodeinfo relation url");
         let node_info_well_known = CLIENT
