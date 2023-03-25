@@ -1,113 +1,84 @@
 use crate::node_info::{NodeInfo, NodeInfoWellKnown};
 use crate::CLIENT;
 use anyhow::{anyhow, Error};
-use async_recursion::async_recursion;
-use futures::future::join_all;
 use lemmy_api_common::site::GetSiteResponse;
-use log::debug;
 use reqwest::Url;
 use semver::Version;
 use std::collections::HashSet;
-use std::ops::Deref;
 use std::sync::Arc;
-use std::thread::sleep;
-use std::time::Duration;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::Mutex;
 
-#[derive(new)]
+#[derive(new, Debug, Clone)]
 pub struct CrawlJob {
-    domain: String,
-    current_distance: i32,
+    pub domain: String,
+    pub current_distance: u8,
     params: Arc<CrawlParams>,
 }
 
-#[derive(new)]
+#[derive(new, Debug)]
 pub struct CrawlParams {
     min_lemmy_version: Version,
-    exclude_domains: Vec<String>,
-    max_depth: i32,
-    crawled_instances: Arc<Mutex<HashSet<String>>>,
+    exclude_domains: HashSet<String>,
+    max_distance: u8,
+    crawled_instances: Mutex<HashSet<String>>,
+    result_sender: UnboundedSender<CrawlResult>,
 }
 
 #[derive(Debug)]
 pub struct CrawlResult {
     pub domain: String,
     pub node_info: NodeInfo,
-    pub site_info: Option<GetSiteResponse>,
+    pub site_info: GetSiteResponse,
 }
 
 impl CrawlJob {
-    #[async_recursion]
-    pub async fn crawl(self) -> Vec<Result<CrawlResult, Error>> {
+    // TODO: return an enum for crawl states,
+    pub async fn crawl(self, sender: UnboundedSender<CrawlJob>) -> Result<(), Error> {
         // need to acquire and release mutex before recursing, otherwise it will deadlock
         {
-            let mut crawled_instances = self.params.crawled_instances.deref().lock().await;
+            let mut crawled_instances = self.params.crawled_instances.lock().await;
+            // Need this check to avoid instances being crawled multiple times. Actually the
+            // crawled_instances filter below should take care of that, but its not enough).
             if crawled_instances.contains(&self.domain) {
-                return vec![];
+                return Ok(());
             } else {
                 crawled_instances.insert(self.domain.clone());
             }
         }
 
-        if self.current_distance > self.params.max_depth
-            || self.params.exclude_domains.contains(&self.domain)
-        {
-            return vec![];
+        let (node_info, site_info) = self.fetch_instance_details().await?;
+
+        let version = Version::parse(&site_info.version)?;
+        if version < self.params.min_lemmy_version {
+            return Err(anyhow!("too old lemmy version {version}"));
         }
 
-        debug!(
-            "Starting crawl for {}, distance {}",
-            &self.domain, &self.current_distance
-        );
-        let (node_info, site_info) = match self.fetch_instance_details().await {
-            Ok(o) => o,
-            Err(e) => return vec![Err(e)],
-        };
-        let mut crawl_result = CrawlResult {
+        if self.current_distance < self.params.max_distance {
+            let crawled_instances = self.params.crawled_instances.lock().await;
+            site_info
+                .federated_instances
+                .clone()
+                .map(|f| f.linked)
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|i| !self.params.exclude_domains.contains(i))
+                .filter(|i| !crawled_instances.contains(i))
+                .map(|i| CrawlJob::new(i.clone(), self.current_distance + 1, self.params.clone()))
+                .for_each(|j| sender.send(j).unwrap());
+        }
+
+        let crawl_result = CrawlResult {
             domain: self.domain.clone(),
             node_info,
-            site_info: None,
+            site_info,
         };
+        self.params.result_sender.send(crawl_result).unwrap();
 
-        if let Some(site_info) = site_info {
-            match Version::parse(&site_info.version) {
-                Ok(version) => {
-                    if version < self.params.min_lemmy_version {
-                        return vec![Ok(crawl_result)];
-                    }
-                }
-                Err(e) => return vec![Err(e.into())],
-            }
-
-            let mut result = vec![];
-            if let Some(federated) = &site_info.federated_instances {
-                for domain in federated.linked.iter() {
-                    let crawl_job = CrawlJob::new(
-                        domain.clone(),
-                        self.current_distance + 1,
-                        self.params.clone(),
-                    );
-                    result.push(crawl_job.crawl());
-                }
-            }
-
-            let mut result2: Vec<Result<CrawlResult, Error>> =
-                join_all(result).await.into_iter().flatten().collect();
-            debug!("Successfully finished crawl for {}", &self.domain);
-            crawl_result.site_info = Some(site_info);
-            result2.push(Ok(crawl_result));
-
-            result2
-        } else {
-            vec![Ok(crawl_result)]
-        }
+        Ok(())
     }
 
-    async fn fetch_instance_details(&self) -> Result<(NodeInfo, Option<GetSiteResponse>), Error> {
-        // Wait a little while to slow down the crawling and avoid too many open connections, which
-        // results in "error trying to connect: dns error: Too many open files".
-        sleep(Duration::from_millis(10));
-
+    async fn fetch_instance_details(&self) -> Result<(NodeInfo, GetSiteResponse), Error> {
         let rel_node_info: Url = Url::parse("http://nodeinfo.diaspora.software/ns/schema/2.0")
             .expect("parse nodeinfo relation url");
         let node_info_well_known = CLIENT
@@ -128,14 +99,16 @@ impl CrawlJob {
             .await?
             .json::<NodeInfo>()
             .await?;
+        if node_info.software.name != "lemmy" && node_info.software.name != "lemmybb" {
+            return Err(anyhow!("wrong software {}", node_info.software.name));
+        }
 
         let site_info = CLIENT
             .get(&format!("https://{}/api/v3/site", &self.domain))
             .send()
             .await?
             .json::<GetSiteResponse>()
-            .await
-            .ok();
+            .await?;
         Ok((node_info, site_info))
     }
 }
