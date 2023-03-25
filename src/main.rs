@@ -1,31 +1,33 @@
 use anyhow::Error;
+use clap::Parser;
 use lemmy_stats_crawler::{start_crawl, CrawlResult2};
 use serde::Serialize;
 use std::time::Instant;
-use structopt::StructOpt;
 
-#[derive(StructOpt, Debug)]
-#[structopt()]
+#[derive(Parser)]
 pub struct Parameters {
     /// List of Lemmy instance domains where the crawl should be started
-    #[structopt(short, long, use_delimiter = true, default_value = "lemmy.ml")]
+    #[structopt(short, long, use_value_delimiter = true, default_value = "lemmy.ml")]
     pub start_instances: Vec<String>,
     /// List of Lemmy instance domains which should not be crawled
     #[structopt(
         short,
         long,
-        use_delimiter = true,
+        use_value_delimiter = true,
         default_value = "ds9.lemmy.ml,enterprise.lemmy.ml,voyager.lemmy.ml,test.lemmy.ml"
     )]
     pub exclude_instances: Vec<String>,
     /// Prints output in machine readable JSON format
     #[structopt(long)]
     json: bool,
+    /// Maximum crawl distance from start_instances
     #[structopt(short, long, default_value = "10")]
     pub max_crawl_distance: u8,
-    #[structopt(long, default_value = "100")]
+    /// Number of crawl jobs to run in parallel
+    #[structopt(short, long, default_value = "100")]
     pub jobs_count: u32,
-    #[structopt(short, long, parse(from_occurrences))]
+    /// Log verbosity, 0 -> Error 1 -> Warn 2 -> Info 3 -> Debug 4 or higher -> Trace
+    #[structopt(short, long, default_value = "2")]
     verbose: usize,
     /// Silence all output
     #[structopt(short, long)]
@@ -34,16 +36,11 @@ pub struct Parameters {
 
 #[tokio::main]
 pub async fn main() -> Result<(), Error> {
-    let params = Parameters::from_args();
-    let verbosity = if params.verbose == 0 {
-        2
-    } else {
-        params.verbose
-    };
+    let params = Parameters::parse();
     stderrlog::new()
         .module(module_path!())
         .quiet(params.quiet)
-        .verbosity(verbosity)
+        .verbosity(params.verbose)
         .init()?;
 
     eprintln!("Crawling...");
@@ -82,7 +79,7 @@ pub async fn main() -> Result<(), Error> {
 
 // TODO: lemmy stores these numbers in SiteAggregates, would be good to simply use that as a member
 //       (to avoid many members). but SiteAggregates also has id, site_id fields
-#[derive(Serialize, Debug)]
+#[derive(Serialize)]
 struct TotalStats {
     crawled_instances: i32,
     online_users: usize,
