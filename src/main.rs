@@ -1,22 +1,34 @@
 use anyhow::Error;
+use clap::Parser;
 use lemmy_stats_crawler::{start_crawl, CrawlResult2};
 use serde::Serialize;
-use structopt::StructOpt;
+use std::time::Instant;
 
-#[derive(StructOpt, Debug)]
-#[structopt()]
-struct Parameters {
-    #[structopt(short, long, use_delimiter = true, default_value = "lemmy.ml")]
-    start_instances: Vec<String>,
+#[derive(Parser)]
+pub struct Parameters {
+    /// List of Lemmy instance domains where the crawl should be started
+    #[structopt(short, long, use_value_delimiter = true, default_value = "lemmy.ml")]
+    pub start_instances: Vec<String>,
+    /// List of Lemmy instance domains which should not be crawled
     #[structopt(
         short,
         long,
-        use_delimiter = true,
+        use_value_delimiter = true,
         default_value = "ds9.lemmy.ml,enterprise.lemmy.ml,voyager.lemmy.ml,test.lemmy.ml"
     )]
-    exclude_instances: Vec<String>,
-    #[structopt(short, long, default_value = "20")]
-    max_crawl_distance: i32,
+    pub exclude_instances: Vec<String>,
+    /// Prints output in machine readable JSON format
+    #[structopt(long)]
+    json: bool,
+    /// Maximum crawl distance from start_instances
+    #[structopt(short, long, default_value = "10")]
+    pub max_crawl_distance: u8,
+    /// Number of crawl jobs to run in parallel
+    #[structopt(short, long, default_value = "100")]
+    pub jobs_count: u32,
+    /// Log verbosity, 0 -> Error 1 -> Warn 2 -> Info 3 -> Debug 4 or higher -> Trace
+    #[structopt(short, long, default_value = "2")]
+    verbose: usize,
     /// Silence all output
     #[structopt(short, long)]
     quiet: bool,
@@ -24,24 +36,44 @@ struct Parameters {
 
 #[tokio::main]
 pub async fn main() -> Result<(), Error> {
-    let params = Parameters::from_args();
-
+    let params = Parameters::parse();
     stderrlog::new()
         .module(module_path!())
         .quiet(params.quiet)
-        .verbosity(1)
+        .verbosity(params.verbose)
         .init()?;
 
     eprintln!("Crawling...");
+    let start_time = Instant::now();
     let instance_details = start_crawl(
         params.start_instances,
         params.exclude_instances,
+        params.jobs_count,
         params.max_crawl_distance,
     )
     .await?;
     let total_stats = aggregate(instance_details);
 
-    println!("{}", serde_json::to_string_pretty(&total_stats)?);
+    if params.json {
+        println!("{}", serde_json::to_string_pretty(&total_stats)?);
+    } else {
+        eprintln!("Crawl complete, took {}s", start_time.elapsed().as_secs());
+        eprintln!(
+            "Number of Lemmy instances: {}",
+            total_stats.crawled_instances
+        );
+        eprintln!("Total users: {}", total_stats.total_users);
+        eprintln!("Online users: {}", total_stats.online_users);
+        eprintln!(
+            "Half year active users: {}",
+            total_stats.users_active_halfyear
+        );
+        eprintln!("Monthly active users: {}", total_stats.users_active_month);
+        eprintln!("Weekly active users: {}", total_stats.users_active_week);
+        eprintln!("Daily active users: {}", total_stats.users_active_day);
+        eprintln!();
+        eprintln!("Use --json flag to get machine readable output");
+    }
     Ok(())
 }
 
