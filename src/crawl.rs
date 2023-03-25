@@ -64,7 +64,7 @@ impl CrawlJob {
                 .into_iter()
                 .filter(|i| !self.params.exclude_domains.contains(i))
                 .filter(|i| !crawled_instances.contains(i))
-                .map(|i| CrawlJob::new(i.clone(), self.current_distance + 1, self.params.clone()))
+                .map(|i| CrawlJob::new(i, self.current_distance + 1, self.params.clone()))
                 .for_each(|j| sender.send(j).unwrap());
         }
 

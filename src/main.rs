@@ -1,6 +1,5 @@
 use anyhow::Error;
 use lemmy_stats_crawler::{start_crawl, CrawlResult2};
-use log::info;
 use serde::Serialize;
 use std::time::Instant;
 use structopt::StructOpt;

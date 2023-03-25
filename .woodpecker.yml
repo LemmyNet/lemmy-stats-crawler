@@ -1,0 +1,36 @@
+pipeline:
+  cargo_fmt:
+    image: rustdocker/rust:nightly
+    commands:
+      - /root/.cargo/bin/cargo fmt -- --check
+
+  cargo_check:
+    image: rust:1.65-bullseye
+    environment:
+      CARGO_HOME: .cargo
+    commands:
+      - cargo check --all-features --all-targets
+
+  cargo_clippy:
+    image: rust:1.65-bullseye
+    environment:
+      CARGO_HOME: .cargo
+    commands:
+      - rustup component add clippy
+      - cargo clippy --all-targets --all-features --
+        -D warnings -D deprecated -D clippy::perf -D clippy::complexity
+        -D clippy::dbg_macro
+
+  cargo_test:
+    image: rust:1.65-bullseye
+    environment:
+      CARGO_HOME: .cargo
+    commands:
+      - cargo test --all-features --no-fail-fast
+
+  cargo_run:
+    image: rust:1.65-bullseye
+    environment:
+      CARGO_HOME: .cargo
+    commands:
+      - cargo run
