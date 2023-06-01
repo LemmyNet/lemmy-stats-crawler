@@ -2,6 +2,8 @@ use crate::node_info::{NodeInfo, NodeInfoWellKnown};
 use crate::CLIENT;
 use anyhow::{anyhow, Error};
 use lemmy_api_common::site::GetSiteResponse;
+use once_cell::sync::Lazy;
+use regex::Regex;
 use reqwest::Url;
 use semver::Version;
 use std::collections::HashSet;
@@ -31,6 +33,11 @@ pub struct CrawlResult {
     pub node_info: NodeInfo,
     pub site_info: GetSiteResponse,
 }
+
+/// Regex to check that a domain is valid
+static DOMAIN_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$"#).expect("compile domain regex")
+});
 
 impl CrawlJob {
     // TODO: return an enum for crawl states,
@@ -64,6 +71,7 @@ impl CrawlJob {
                 .into_iter()
                 .filter(|i| !self.params.exclude_domains.contains(i))
                 .filter(|i| !crawled_instances.contains(i))
+                .filter(|i| DOMAIN_REGEX.is_match(i))
                 .map(|i| CrawlJob::new(i, self.current_distance + 1, self.params.clone()))
                 .for_each(|j| sender.send(j).unwrap());
         }
