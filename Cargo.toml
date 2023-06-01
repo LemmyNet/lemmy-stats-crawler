@@ -26,3 +26,4 @@ log = "0.4.17"
 derive-new = "0.5.9"
 stderrlog = "0.5.4"
 clap = { version = "4.1", features = ["derive"] }
+regex = "1.8.3"
