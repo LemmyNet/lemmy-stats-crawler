@@ -1,9 +1,9 @@
 use anyhow::Error;
 use clap::Parser;
-use lemmy_stats_crawler::{start_crawl};
+use lemmy_stats_crawler::crawl::CrawlResult;
+use lemmy_stats_crawler::start_crawl;
 use serde::Serialize;
 use std::time::Instant;
-use lemmy_stats_crawler::crawl::CrawlResult;
 
 #[derive(Parser)]
 pub struct Parameters {
