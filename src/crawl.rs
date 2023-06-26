@@ -4,10 +4,12 @@ use anyhow::{anyhow, Error};
 use lemmy_api_common::site::GetSiteResponse;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use lemmy_api_common::site::GetFederatedInstancesResponse;
 use reqwest::Url;
 use semver::Version;
 use std::collections::HashSet;
 use std::sync::Arc;
+use serde::Serialize;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::Mutex;
 
@@ -27,11 +29,12 @@ pub struct CrawlParams {
     result_sender: UnboundedSender<CrawlResult>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct CrawlResult {
     pub domain: String,
     pub node_info: NodeInfo,
     pub site_info: GetSiteResponse,
+    pub federated_instances: GetFederatedInstancesResponse,
 }
 
 /// Regex to check that a domain is valid
@@ -54,7 +57,7 @@ impl CrawlJob {
             }
         }
 
-        let (node_info, site_info) = self.fetch_instance_details().await?;
+        let (node_info, site_info, federated_instances) = self.fetch_instance_details().await?;
 
         let version = Version::parse(&site_info.version)?;
         if version < self.params.min_lemmy_version {
@@ -63,16 +66,15 @@ impl CrawlJob {
 
         if self.current_distance < self.params.max_distance {
             let crawled_instances = self.params.crawled_instances.lock().await;
-            site_info
-                .federated_instances
+            federated_instances.federated_instances
                 .clone()
                 .map(|f| f.linked)
                 .unwrap_or_default()
                 .into_iter()
-                .filter(|i| !self.params.exclude_domains.contains(i))
-                .filter(|i| !crawled_instances.contains(i))
-                .filter(|i| DOMAIN_REGEX.is_match(i))
-                .map(|i| CrawlJob::new(i, self.current_distance + 1, self.params.clone()))
+                .filter(|i| !self.params.exclude_domains.contains(&i.domain))
+                .filter(|i| !crawled_instances.contains(&i.domain))
+                .filter(|i| DOMAIN_REGEX.is_match(&i.domain))
+                .map(|i| CrawlJob::new(i.domain, self.current_distance + 1, self.params.clone()))
                 .for_each(|j| sender.send(j).unwrap());
         }
 
@@ -80,13 +82,14 @@ impl CrawlJob {
             domain: self.domain.clone(),
             node_info,
             site_info,
+            federated_instances
         };
         self.params.result_sender.send(crawl_result).unwrap();
 
         Ok(())
     }
 
-    async fn fetch_instance_details(&self) -> Result<(NodeInfo, GetSiteResponse), Error> {
+    async fn fetch_instance_details(&self) -> Result<(NodeInfo, GetSiteResponse, GetFederatedInstancesResponse), Error> {
         let rel_node_info: Url = Url::parse("http://nodeinfo.diaspora.software/ns/schema/2.0")
             .expect("parse nodeinfo relation url");
         let node_info_well_known = CLIENT
@@ -117,6 +120,12 @@ impl CrawlJob {
             .await?
             .json::<GetSiteResponse>()
             .await?;
-        Ok((node_info, site_info))
+        let federated_instances = CLIENT
+            .get(&format!("https://{}/api/v3/federated_instances", &self.domain))
+            .send()
+            .await?
+            .json::<GetFederatedInstancesResponse>()
+            .await?;
+        Ok((node_info, site_info, federated_instances))
     }
 }
