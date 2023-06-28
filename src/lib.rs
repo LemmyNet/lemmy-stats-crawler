@@ -10,6 +10,7 @@ use semver::Version;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
+use reqwest::redirect::Policy;
 use tokio::sync::mpsc::{UnboundedReceiver, WeakUnboundedSender};
 use tokio::sync::{mpsc, Mutex};
 
@@ -24,6 +25,7 @@ static CLIENT: Lazy<Client> = Lazy::new(|| {
         .user_agent("lemmy-stats-crawler")
         .pool_idle_timeout(Some(Duration::from_millis(100)))
         .pool_max_idle_per_host(1)
+        .redirect(Policy::none())
         .build()
         .expect("build reqwest client")
 });
