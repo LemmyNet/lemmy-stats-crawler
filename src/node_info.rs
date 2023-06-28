@@ -1,18 +1,6 @@
-use reqwest::Url;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Debug)]
-pub struct NodeInfoWellKnown {
-    pub links: Vec<NodeInfoWellKnownLinks>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct NodeInfoWellKnownLinks {
-    pub rel: Url,
-    pub href: Url,
-}
-
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeInfo {
     pub version: String,
@@ -22,7 +10,7 @@ pub struct NodeInfo {
     pub open_registrations: bool,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct NodeInfoSoftware {
     pub name: String,
     pub version: String,
