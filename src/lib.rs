@@ -2,11 +2,14 @@
 extern crate derive_new;
 
 use crate::crawl::{CrawlJob, CrawlParams, CrawlResult};
+use crate::node_info::{NodeInfo, NodeInfoUsage, NodeInfoUsers};
 use anyhow::Error;
+use lemmy_api_common::site::GetSiteResponse;
 use log::{debug, trace};
 use once_cell::sync::Lazy;
 use reqwest::{Client, ClientBuilder};
 use semver::Version;
+use serde::Serialize;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
@@ -28,12 +31,19 @@ static CLIENT: Lazy<Client> = Lazy::new(|| {
         .expect("build reqwest client")
 });
 
+#[derive(Serialize, Debug)]
+pub struct CrawlResult2 {
+    pub domain: String,
+    pub site_info: GetSiteResponse,
+    pub federated_counts: Option<NodeInfoUsage>,
+}
+
 pub async fn start_crawl(
     start_instances: Vec<String>,
     exclude_domains: Vec<String>,
     jobs_count: u32,
     max_distance: u8,
-) -> Result<Vec<CrawlResult>, Error> {
+) -> Result<Vec<CrawlResult2>, Error> {
     let (crawl_jobs_sender, crawl_jobs_receiver) = mpsc::unbounded_channel::<CrawlJob>();
     let (results_sender, mut results_receiver) = mpsc::unbounded_channel();
     let params = Arc::new(CrawlParams::new(
@@ -66,10 +76,12 @@ pub async fn start_crawl(
         results.push(res);
     }
 
+    let mut crawl_results = calculate_federated_site_aggregates(results)?;
+
     // Sort by active monthly users descending
-    results.sort_unstable_by_key(|i| i.site_info.site_view.counts.users_active_month);
-    results.reverse();
-    Ok(results)
+    crawl_results.sort_unstable_by_key(|i| i.site_info.site_view.counts.users_active_month);
+    crawl_results.reverse();
+    Ok(crawl_results)
 }
 
 async fn background_task(
@@ -112,4 +124,47 @@ async fn min_lemmy_version() -> Result<Version, Error> {
     let mut version = Version::parse(req.text().await?.trim())?;
     version.minor -= 1;
     Ok(version)
+}
+
+// TODO: not quite sure what this is doing
+fn calculate_federated_site_aggregates(
+    crawl_results: Vec<CrawlResult>,
+) -> Result<Vec<CrawlResult2>, Error> {
+    let node_info: Vec<(String, NodeInfo)> = crawl_results
+        .iter()
+        .map(|c| (c.domain.clone(), c.node_info.clone()))
+        .collect();
+    let lemmy_instances: Vec<(String, GetSiteResponse)> = crawl_results
+        .into_iter()
+        .map(|c| {
+            let domain = c.domain;
+            (domain, c.site_info)
+        })
+        .collect();
+    let mut ret = vec![];
+    for instance in &lemmy_instances {
+        let federated_counts = if let Some(federated_instances) = &instance.1.federated_instances {
+            node_info
+                .iter()
+                .filter(|i| federated_instances.linked.contains(&i.0) || i.0 == instance.0)
+                .map(|i| i.1.usage.clone())
+                .reduce(|a, b| NodeInfoUsage {
+                    users: NodeInfoUsers {
+                        total: a.users.total + b.users.total,
+                        active_halfyear: a.users.active_halfyear + b.users.active_halfyear,
+                        active_month: a.users.active_month + b.users.active_month,
+                    },
+                    posts: a.posts + b.posts,
+                    comments: a.comments + b.comments,
+                })
+        } else {
+            None
+        };
+        ret.push(CrawlResult2 {
+            domain: instance.0.clone(),
+            site_info: instance.1.clone(),
+            federated_counts,
+        });
+    }
+    Ok(ret)
 }

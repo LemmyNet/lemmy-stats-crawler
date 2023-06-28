@@ -1,15 +1,13 @@
-use crate::node_info::NodeInfo;
+use crate::node_info::{NodeInfo, NodeInfoWellKnown};
 use crate::CLIENT;
 use anyhow::{anyhow, Error};
-use lemmy_api_common::site::GetFederatedInstancesResponse;
 use lemmy_api_common::site::GetSiteResponse;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use reqwest::Url;
 use semver::Version;
-use serde::Serialize;
 use std::collections::HashSet;
 use std::sync::Arc;
-use tokio::join;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::Mutex;
 
@@ -29,12 +27,11 @@ pub struct CrawlParams {
     result_sender: UnboundedSender<CrawlResult>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct CrawlResult {
     pub domain: String,
     pub node_info: NodeInfo,
     pub site_info: GetSiteResponse,
-    pub federated_instances: GetFederatedInstancesResponse,
 }
 
 /// Regex to check that a domain is valid
@@ -57,7 +54,7 @@ impl CrawlJob {
             }
         }
 
-        let (node_info, site_info, federated_instances) = self.fetch_instance_details().await?;
+        let (node_info, site_info) = self.fetch_instance_details().await?;
 
         let version = Version::parse(&site_info.version)?;
         if version < self.params.min_lemmy_version {
@@ -66,16 +63,16 @@ impl CrawlJob {
 
         if self.current_distance < self.params.max_distance {
             let crawled_instances = self.params.crawled_instances.lock().await;
-            federated_instances
+            site_info
                 .federated_instances
                 .clone()
                 .map(|f| f.linked)
                 .unwrap_or_default()
                 .into_iter()
-                .filter(|i| !self.params.exclude_domains.contains(&i.domain))
-                .filter(|i| !crawled_instances.contains(&i.domain))
-                .filter(|i| DOMAIN_REGEX.is_match(&i.domain))
-                .map(|i| CrawlJob::new(i.domain, self.current_distance + 1, self.params.clone()))
+                .filter(|i| !self.params.exclude_domains.contains(i))
+                .filter(|i| !crawled_instances.contains(i))
+                .filter(|i| DOMAIN_REGEX.is_match(i))
+                .map(|i| CrawlJob::new(i, self.current_distance + 1, self.params.clone()))
                 .for_each(|j| sender.send(j).unwrap());
         }
 
@@ -83,42 +80,43 @@ impl CrawlJob {
             domain: self.domain.clone(),
             node_info,
             site_info,
-            federated_instances,
         };
         self.params.result_sender.send(crawl_result).unwrap();
 
         Ok(())
     }
 
-    async fn fetch_instance_details(
-        &self,
-    ) -> Result<(NodeInfo, GetSiteResponse, GetFederatedInstancesResponse), Error> {
+    async fn fetch_instance_details(&self) -> Result<(NodeInfo, GetSiteResponse), Error> {
+        let rel_node_info: Url = Url::parse("http://nodeinfo.diaspora.software/ns/schema/2.0")
+            .expect("parse nodeinfo relation url");
+        let node_info_well_known = CLIENT
+            .get(&format!("https://{}/.well-known/nodeinfo", &self.domain))
+            .send()
+            .await?
+            .json::<NodeInfoWellKnown>()
+            .await?;
+        let node_info_url = node_info_well_known
+            .links
+            .into_iter()
+            .find(|l| l.rel == rel_node_info)
+            .ok_or_else(|| anyhow!("failed to find nodeinfo link for {}", &self.domain))?
+            .href;
         let node_info = CLIENT
-            .get(&format!("https://{}/nodeinfo/2.0.json", &self.domain))
-            .send();
-        let site_info = CLIENT
-            .get(&format!("https://{}/api/v3/site", &self.domain))
-            .send();
-        let federated_instances = CLIENT
-            .get(&format!(
-                "https://{}/api/v3/federated_instances",
-                &self.domain
-            ))
-            .send();
-
-        let (node_info, site_info, federated_instances) =
-            join!(node_info, site_info, federated_instances);
-
-        let node_info = node_info?.json::<NodeInfo>().await?;
+            .get(node_info_url)
+            .send()
+            .await?
+            .json::<NodeInfo>()
+            .await?;
         if node_info.software.name != "lemmy" && node_info.software.name != "lemmybb" {
             return Err(anyhow!("wrong software {}", node_info.software.name));
         }
 
-        let site_info = site_info?.json::<GetSiteResponse>().await?;
-        let federated_instances = federated_instances?
-            .json::<GetFederatedInstancesResponse>()
+        let site_info = CLIENT
+            .get(&format!("https://{}/api/v3/site", &self.domain))
+            .send()
+            .await?
+            .json::<GetSiteResponse>()
             .await?;
-
-        Ok((node_info, site_info, federated_instances))
+        Ok((node_info, site_info))
     }
 }

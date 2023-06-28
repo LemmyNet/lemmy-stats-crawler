@@ -1,7 +1,6 @@
 use anyhow::Error;
 use clap::Parser;
-use lemmy_stats_crawler::crawl::CrawlResult;
-use lemmy_stats_crawler::start_crawl;
+use lemmy_stats_crawler::{start_crawl, CrawlResult2};
 use serde::Serialize;
 use std::time::Instant;
 
@@ -64,6 +63,7 @@ pub async fn main() -> Result<(), Error> {
             total_stats.crawled_instances
         );
         eprintln!("Total users: {}", total_stats.total_users);
+        eprintln!("Online users: {}", total_stats.online_users);
         eprintln!(
             "Half year active users: {}",
             total_stats.users_active_halfyear
@@ -82,15 +82,17 @@ pub async fn main() -> Result<(), Error> {
 #[derive(Serialize)]
 struct TotalStats {
     crawled_instances: i32,
+    online_users: usize,
     total_users: i64,
     users_active_day: i64,
     users_active_week: i64,
     users_active_month: i64,
     users_active_halfyear: i64,
-    instance_details: Vec<CrawlResult>,
+    instance_details: Vec<CrawlResult2>,
 }
 
-fn aggregate(instance_details: Vec<CrawlResult>) -> TotalStats {
+fn aggregate(instance_details: Vec<CrawlResult2>) -> TotalStats {
+    let mut online_users = 0;
     let mut total_users = 0;
     let mut users_active_day = 0;
     let mut users_active_week = 0;
@@ -99,6 +101,7 @@ fn aggregate(instance_details: Vec<CrawlResult>) -> TotalStats {
     let mut crawled_instances = 0;
     for i in &instance_details {
         crawled_instances += 1;
+        online_users += i.site_info.online;
         let counts = &i.site_info.site_view.counts;
         total_users += counts.users;
         users_active_day += counts.users_active_day;
@@ -108,6 +111,7 @@ fn aggregate(instance_details: Vec<CrawlResult>) -> TotalStats {
     }
     TotalStats {
         crawled_instances,
+        online_users,
         total_users,
         users_active_day,
         users_active_week,
