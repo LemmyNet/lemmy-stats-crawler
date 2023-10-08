@@ -5,12 +5,12 @@ use crate::crawl::{CrawlJob, CrawlParams, CrawlResult};
 use anyhow::Error;
 use log::{debug, trace};
 use once_cell::sync::Lazy;
+use reqwest::redirect::Policy;
 use reqwest::{Client, ClientBuilder};
 use semver::Version;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
-use reqwest::redirect::Policy;
 use tokio::sync::mpsc::{UnboundedReceiver, WeakUnboundedSender};
 use tokio::sync::{mpsc, Mutex};
 
