@@ -39,7 +39,7 @@ pub struct CrawlResult {
 
 /// Regex to check that a domain is valid
 static DOMAIN_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$"#).expect("compile domain regex")
+    Regex::new(r"^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$").expect("compile domain regex")
 });
 
 impl CrawlJob {
@@ -94,13 +94,13 @@ impl CrawlJob {
         &self,
     ) -> Result<(NodeInfo, GetSiteResponse, GetFederatedInstancesResponse), Error> {
         let node_info = CLIENT
-            .get(&format!("https://{}/nodeinfo/2.0.json", &self.domain))
+            .get(format!("https://{}/nodeinfo/2.0.json", &self.domain))
             .send();
         let site_info = CLIENT
-            .get(&format!("https://{}/api/v3/site", &self.domain))
+            .get(format!("https://{}/api/v3/site", &self.domain))
             .send();
         let federated_instances = CLIENT
-            .get(&format!(
+            .get(format!(
                 "https://{}/api/v3/federated_instances",
                 &self.domain
             ))
