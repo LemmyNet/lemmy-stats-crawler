@@ -1,18 +1,33 @@
-pipeline:
+variables:
+  - &rust_image "rust:1.72.1"
+
+steps:
   cargo_fmt:
     image: rustdocker/rust:nightly
     commands:
       - /root/.cargo/bin/cargo fmt -- --check
 
+  toml_fmt:
+    group: format
+    image: tamasfe/taplo:0.8.1
+    commands:
+      - taplo format --check
+
+  prettier_check:
+    group: format
+    image: tmknom/prettier:3.0.0
+    commands:
+      - prettier -c .
+
   cargo_check:
-    image: rust:1.65-bullseye
+    image: *rust_image
     environment:
       CARGO_HOME: .cargo
     commands:
       - cargo check --all-features --all-targets
 
   cargo_clippy:
-    image: rust:1.65-bullseye
+    image: *rust_image
     environment:
       CARGO_HOME: .cargo
     commands:
@@ -22,14 +37,14 @@ pipeline:
         -D clippy::dbg_macro
 
   cargo_test:
-    image: rust:1.65-bullseye
+    image: *rust_image
     environment:
       CARGO_HOME: .cargo
     commands:
       - cargo test --all-features --no-fail-fast
 
   cargo_run:
-    image: rust:1.65-bullseye
+    image: *rust_image
     environment:
       CARGO_HOME: .cargo
     commands:
