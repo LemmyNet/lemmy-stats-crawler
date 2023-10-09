@@ -15,4 +15,3 @@ For a complete list of arguments, use `--help`
 ```
 cargo run -- --help
 ```
-
