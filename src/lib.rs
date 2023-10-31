@@ -1,8 +1,9 @@
 #[macro_use]
 extern crate derive_new;
 
-use crate::crawl::{CrawlJob, CrawlParams, CrawlResult};
 use anyhow::Error;
+use crawl::CrawlParams;
+use crawl::{CrawlJob, CrawlResult};
 use log::{debug, trace};
 use once_cell::sync::Lazy;
 use reqwest::redirect::Policy;
@@ -15,7 +16,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, WeakUnboundedSender};
 use tokio::sync::{mpsc, Mutex};
 
 pub mod crawl;
-mod node_info;
+mod structs;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -69,7 +70,7 @@ pub async fn start_crawl(
     }
 
     // Sort by active monthly users descending
-    results.sort_unstable_by_key(|i| i.site_info.site_view.counts.users_active_month);
+    results.sort_unstable_by_key(|i| i.site_info.users_active_month());
     results.reverse();
     Ok(results)
 }
