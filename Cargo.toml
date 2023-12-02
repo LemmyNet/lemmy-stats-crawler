@@ -15,7 +15,7 @@ debug = 0
 
 [dependencies]
 lemmy_api_common_v018 = { package = "lemmy_api_common", git = "https://github.com/LemmyNet/lemmy.git", tag = "0.18.5" }
-lemmy_api_common_v019 = { package = "lemmy_api_common", git = "https://github.com/LemmyNet/lemmy.git", tag = "0.19.0-rc.3" }
+lemmy_api_common_v019 = { package = "lemmy_api_common", git = "https://github.com/LemmyNet/lemmy.git", tag = "0.19.0-rc.12" }
 reqwest = { version = "0.11.22", default-features = false, features = [
   "json",
   "rustls-tls",
