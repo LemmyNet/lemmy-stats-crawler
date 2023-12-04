@@ -8,7 +8,7 @@ use lemmy_api_common_v019::lemmy_db_schema::source::instance::Instance as Instan
 use lemmy_api_common_v019::site::{
     FederatedInstances as FederatedInstances019,
     GetFederatedInstancesResponse as GetFederatedInstancesResponse019,
-    GetSiteResponse as GetSiteResponse019,
+    GetSiteResponse as GetSiteResponse019, InstanceWithFederationState,
 };
 use serde::{Deserialize, Serialize};
 
@@ -121,14 +121,17 @@ impl GetFederatedInstancesResponse {
     }
 }
 
-fn convert_instance(instance: &Instance018) -> Instance019 {
-    Instance019 {
-        // id field is private so we cant convert it
-        id: InstanceId::default(),
-        domain: instance.domain.clone(),
-        published: instance.published.clone().and_utc(),
-        updated: instance.updated.map(|u| u.and_utc()),
-        software: instance.software.clone(),
-        version: instance.version.clone(),
+fn convert_instance(instance: &Instance018) -> InstanceWithFederationState {
+    InstanceWithFederationState {
+        instance: Instance019 {
+            // id field is private so we cant convert it
+            id: InstanceId::default(),
+            domain: instance.domain.clone(),
+            published: instance.published.clone().and_utc(),
+            updated: instance.updated.map(|u| u.and_utc()),
+            software: instance.software.clone(),
+            version: instance.version.clone(),
+        },
+        federation_state: None,
     }
 }

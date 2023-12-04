@@ -70,10 +70,16 @@ impl CrawlJob {
                 .map(|f| f.linked)
                 .unwrap_or_default()
                 .into_iter()
-                .filter(|i| !self.params.exclude_domains.contains(&i.domain))
-                .filter(|i| !crawled_instances.contains(&i.domain))
-                .filter(|i| DOMAIN_REGEX.is_match(&i.domain))
-                .map(|i| CrawlJob::new(i.domain, self.current_distance + 1, self.params.clone()))
+                .filter(|i| !self.params.exclude_domains.contains(&i.instance.domain))
+                .filter(|i| !crawled_instances.contains(&i.instance.domain))
+                .filter(|i| DOMAIN_REGEX.is_match(&i.instance.domain))
+                .map(|i| {
+                    CrawlJob::new(
+                        i.instance.domain,
+                        self.current_distance + 1,
+                        self.params.clone(),
+                    )
+                })
                 .for_each(|j| sender.send(j).unwrap());
         }
 
