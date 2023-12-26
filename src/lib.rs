@@ -7,7 +7,8 @@ use crawl::{CrawlJob, CrawlResult};
 use log::{debug, trace};
 use once_cell::sync::Lazy;
 use reqwest::redirect::Policy;
-use reqwest::{Client, ClientBuilder};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use semver::Version;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -20,15 +21,20 @@ mod structs;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 
-static CLIENT: Lazy<Client> = Lazy::new(|| {
-    ClientBuilder::new()
+static CLIENT: Lazy<ClientWithMiddleware> = Lazy::new(|| {
+    let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
+    let client = reqwest::ClientBuilder::new()
         .timeout(REQUEST_TIMEOUT)
+        .connect_timeout(REQUEST_TIMEOUT)
         .user_agent("lemmy-stats-crawler")
         .pool_idle_timeout(Some(Duration::from_millis(100)))
         .pool_max_idle_per_host(1)
         .redirect(Policy::none())
         .build()
-        .expect("build reqwest client")
+        .expect("build reqwest client");
+    ClientBuilder::new(client)
+        .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+        .build()
 });
 
 pub async fn start_crawl(
@@ -107,11 +113,7 @@ async fn background_task(
 /// the previous version when a major lemmy release is published.
 async fn min_lemmy_version() -> Result<Version, Error> {
     let lemmy_version_url = "https://raw.githubusercontent.com/LemmyNet/lemmy-ansible/main/VERSION";
-    let req = CLIENT
-        .get(lemmy_version_url)
-        .timeout(REQUEST_TIMEOUT)
-        .send()
-        .await?;
+    let req = CLIENT.get(lemmy_version_url).send().await?;
     let mut version = Version::parse(req.text().await?.trim())?;
     version.minor -= 1;
     Ok(version)
