@@ -3,7 +3,7 @@ use clap::Parser;
 use lemmy_stats_crawler::crawl::CrawlResult;
 use lemmy_stats_crawler::start_crawl;
 use serde::Serialize;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 #[derive(Parser)]
 pub struct Parameters {
@@ -27,6 +27,9 @@ pub struct Parameters {
     /// Number of crawl jobs to run in parallel
     #[structopt(short, long, default_value = "100")]
     pub jobs_count: u32,
+    /// Timeout for HTTP requests, in seconds
+    #[structopt(short, long, default_value = "10")]
+    pub timeout: u64,
     /// Log verbosity, 0 -> Error 1 -> Warn 2 -> Info 3 -> Debug 4 or higher -> Trace
     #[structopt(short, long, default_value = "2")]
     verbose: usize,
@@ -51,6 +54,7 @@ pub async fn main() -> Result<(), Error> {
         params.exclude_instances,
         params.jobs_count,
         params.max_crawl_distance,
+        Duration::from_secs(params.timeout),
     )
     .await?;
     let total_stats = aggregate(instance_details);

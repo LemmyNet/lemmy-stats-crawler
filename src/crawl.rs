@@ -1,8 +1,8 @@
 use crate::structs::{GetFederatedInstancesResponse, GetSiteResponse, NodeInfo};
-use crate::CLIENT;
 use anyhow::{anyhow, Error};
 use once_cell::sync::Lazy;
 use regex::Regex;
+use reqwest_middleware::ClientWithMiddleware;
 use semver::Version;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -30,6 +30,7 @@ pub struct CrawlParams {
     max_distance: u8,
     crawled_instances: Mutex<HashSet<String>>,
     result_sender: UnboundedSender<CrawlResult>,
+    client: ClientWithMiddleware,
 }
 
 #[derive(Debug, Serialize)]
@@ -97,13 +98,19 @@ impl CrawlJob {
     async fn fetch_instance_details(
         &self,
     ) -> Result<(NodeInfo, GetSiteResponse, GetFederatedInstancesResponse), Error> {
-        let node_info = CLIENT
+        let node_info = self
+            .params
+            .client
             .get(format!("https://{}/nodeinfo/2.0.json", &self.domain))
             .send();
-        let site_info = CLIENT
+        let site_info = self
+            .params
+            .client
             .get(format!("https://{}/api/v3/site", &self.domain))
             .send();
-        let federated_instances = CLIENT
+        let federated_instances = self
+            .params
+            .client
             .get(format!(
                 "https://{}/api/v3/federated_instances",
                 &self.domain
