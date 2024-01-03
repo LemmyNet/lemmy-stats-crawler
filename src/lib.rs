@@ -5,9 +5,9 @@ use anyhow::Error;
 use crawl::CrawlParams;
 use crawl::{CrawlJob, CrawlResult};
 use log::{debug, trace};
-use once_cell::sync::Lazy;
 use reqwest::redirect::Policy;
-use reqwest::{Client, ClientBuilder};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use semver::Version;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -18,33 +18,39 @@ use tokio::sync::{mpsc, Mutex};
 pub mod crawl;
 mod structs;
 
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
-
-static CLIENT: Lazy<Client> = Lazy::new(|| {
-    ClientBuilder::new()
-        .timeout(REQUEST_TIMEOUT)
+fn build_client(timeout: Duration) -> ClientWithMiddleware {
+    let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
+    let client = reqwest::ClientBuilder::new()
+        .timeout(timeout)
+        .connect_timeout(timeout)
         .user_agent("lemmy-stats-crawler")
         .pool_idle_timeout(Some(Duration::from_millis(100)))
         .pool_max_idle_per_host(1)
         .redirect(Policy::none())
         .build()
-        .expect("build reqwest client")
-});
+        .expect("build reqwest client");
+    ClientBuilder::new(client)
+        .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+        .build()
+}
 
 pub async fn start_crawl(
     start_instances: Vec<String>,
     exclude_domains: Vec<String>,
     jobs_count: u32,
     max_distance: u8,
+    timeout: Duration,
 ) -> Result<Vec<CrawlResult>, Error> {
     let (crawl_jobs_sender, crawl_jobs_receiver) = mpsc::unbounded_channel::<CrawlJob>();
     let (results_sender, mut results_receiver) = mpsc::unbounded_channel();
+    let client = build_client(timeout);
     let params = Arc::new(CrawlParams::new(
-        min_lemmy_version().await?,
+        min_lemmy_version(&client).await?,
         exclude_domains.into_iter().collect(),
         max_distance,
         Mutex::new(HashSet::new()),
         results_sender,
+        client,
     ));
 
     let rcv = Arc::new(Mutex::new(crawl_jobs_receiver));
@@ -105,13 +111,9 @@ async fn background_task(
 /// calculate minimum allowed lemmy version based on current version. in case of current version
 /// 0.16.3, the minimum from this function is 0.15.3. this is to avoid rejecting all instances on
 /// the previous version when a major lemmy release is published.
-async fn min_lemmy_version() -> Result<Version, Error> {
+async fn min_lemmy_version(client: &ClientWithMiddleware) -> Result<Version, Error> {
     let lemmy_version_url = "https://raw.githubusercontent.com/LemmyNet/lemmy-ansible/main/VERSION";
-    let req = CLIENT
-        .get(lemmy_version_url)
-        .timeout(REQUEST_TIMEOUT)
-        .send()
-        .await?;
+    let req = client.get(lemmy_version_url).send().await?;
     let mut version = Version::parse(req.text().await?.trim())?;
     version.minor -= 1;
     Ok(version)
