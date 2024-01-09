@@ -126,6 +126,15 @@ impl CrawlJob {
         }
 
         let site_info = site_info?.json::<GetSiteResponse>().await?;
+        let site_actor = site_info.actor_id();
+        if site_actor.domain() != Some(&self.domain) {
+            return Err(anyhow!(
+                "wrong domain {}, expected {}",
+                site_actor,
+                &self.domain
+            ));
+        }
+
         let federated_instances = federated_instances?
             .json::<GetFederatedInstancesResponse>()
             .await?;

@@ -10,6 +10,7 @@ use lemmy_api_common_v019::site::{
     GetFederatedInstancesResponse as GetFederatedInstancesResponse019,
     GetSiteResponse as GetSiteResponse019, InstanceWithFederationState,
 };
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -100,6 +101,13 @@ impl GetSiteResponse {
         match self {
             GetSiteResponse::V018(s) => s.site_view.counts.users_active_half_year,
             GetSiteResponse::V019(s) => s.site_view.counts.users_active_half_year,
+        }
+    }
+
+    pub fn actor_id(&self) -> Url {
+        match self {
+            GetSiteResponse::V018(s) => s.site_view.site.actor_id.inner().clone(),
+            GetSiteResponse::V019(s) => s.site_view.site.actor_id.inner().clone(),
         }
     }
 }
