@@ -58,6 +58,6 @@ steps:
     environment:
       CARGO_HOME: .cargo
     commands:
-      - cargo run
+      - cargo run -- --max-crawl-distance 0
     when:
       - event: pull_request
