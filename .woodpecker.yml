@@ -52,12 +52,3 @@ steps:
       - cargo test --all-features --no-fail-fast
     when:
       - event: pull_request
-
-  cargo_run:
-    image: *rust_image
-    environment:
-      CARGO_HOME: .cargo
-    commands:
-      - cargo run -- --max-crawl-distance 0
-    when:
-      - event: pull_request
