@@ -6,18 +6,22 @@ steps:
     image: rustdocker/rust:nightly
     commands:
       - /root/.cargo/bin/cargo fmt -- --check
+    when:
+      - event: pull_request
 
   toml_fmt:
-    group: format
     image: tamasfe/taplo:0.8.1
     commands:
       - taplo format --check
+    when:
+      - event: pull_request
 
   prettier_check:
-    group: format
     image: tmknom/prettier:3.0.0
     commands:
       - prettier -c .
+    when:
+      - event: pull_request
 
   cargo_check:
     image: *rust_image
@@ -25,6 +29,8 @@ steps:
       CARGO_HOME: .cargo
     commands:
       - cargo check --all-features --all-targets
+    when:
+      - event: pull_request
 
   cargo_clippy:
     image: *rust_image
@@ -35,6 +41,8 @@ steps:
       - cargo clippy --all-targets --all-features --
         -D warnings -D deprecated -D clippy::perf -D clippy::complexity
         -D clippy::dbg_macro
+    when:
+      - event: pull_request
 
   cargo_test:
     image: *rust_image
@@ -42,10 +50,5 @@ steps:
       CARGO_HOME: .cargo
     commands:
       - cargo test --all-features --no-fail-fast
-
-  cargo_run:
-    image: *rust_image
-    environment:
-      CARGO_HOME: .cargo
-    commands:
-      - cargo run
+    when:
+      - event: pull_request
