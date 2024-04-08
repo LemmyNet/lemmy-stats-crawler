@@ -94,9 +94,6 @@ name = "anyhow"
 version = "1.0.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59d2a3357dde987206219e78ecfbbb6e8dad06cbb65292758d3270e6254f7355"
-dependencies = [
- "backtrace",
-]
 
 [[package]]
 name = "async-trait"
@@ -702,8 +699,7 @@ dependencies = [
  "anyhow",
  "clap",
  "derive-new",
- "lemmy_api_common 0.18.5",
- "lemmy_api_common 0.19.0-rc.12",
+ "lemmy_api_common",
  "log",
  "once_cell",
  "regex",
@@ -719,33 +715,16 @@ dependencies = [
 
 [[package]]
 name = "lemmy_api_common"
-version = "0.18.5"
-source = "git+https://github.com/LemmyNet/lemmy.git?tag=0.18.5#1846ae9e19e7a2d8eb275c3f6406770a552f5647"
-dependencies = [
- "anyhow",
- "getrandom",
- "lemmy_db_schema 0.18.5",
- "lemmy_db_views 0.18.5",
- "lemmy_db_views_actor 0.18.5",
- "lemmy_db_views_moderator 0.18.5",
- "regex",
- "serde",
- "serde_with",
- "url",
-]
-
-[[package]]
-name = "lemmy_api_common"
 version = "0.19.0-rc.12"
 source = "git+https://github.com/LemmyNet/lemmy.git?tag=0.19.0-rc.12#3f79eacb53c8a1bb0e23c4bd9037606a7cc58857"
 dependencies = [
  "chrono",
  "enum-map",
  "getrandom",
- "lemmy_db_schema 0.19.0-rc.12",
- "lemmy_db_views 0.19.0-rc.12",
- "lemmy_db_views_actor 0.19.0-rc.12",
- "lemmy_db_views_moderator 0.19.0-rc.12",
+ "lemmy_db_schema",
+ "lemmy_db_views",
+ "lemmy_db_views_actor",
+ "lemmy_db_views_moderator",
  "regex",
  "serde",
  "serde_with",
@@ -754,24 +733,6 @@ dependencies = [
 
 [[package]]
 name = "lemmy_db_schema"
-version = "0.18.5"
-source = "git+https://github.com/LemmyNet/lemmy.git?tag=0.18.5#1846ae9e19e7a2d8eb275c3f6406770a552f5647"
-dependencies = [
- "async-trait",
- "chrono",
- "futures-util",
- "serde",
- "serde_with",
- "strum",
- "strum_macros",
- "tracing",
- "typed-builder",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "lemmy_db_schema"
 version = "0.19.0-rc.12"
 source = "git+https://github.com/LemmyNet/lemmy.git?tag=0.19.0-rc.12#3f79eacb53c8a1bb0e23c4bd9037606a7cc58857"
 dependencies = [
@@ -790,34 +751,12 @@ dependencies = [
 
 [[package]]
 name = "lemmy_db_views"
-version = "0.18.5"
-source = "git+https://github.com/LemmyNet/lemmy.git?tag=0.18.5#1846ae9e19e7a2d8eb275c3f6406770a552f5647"
-dependencies = [
- "lemmy_db_schema 0.18.5",
- "serde",
- "serde_with",
- "typed-builder",
-]
-
-[[package]]
-name = "lemmy_db_views"
 version = "0.19.0-rc.12"
 source = "git+https://github.com/LemmyNet/lemmy.git?tag=0.19.0-rc.12#3f79eacb53c8a1bb0e23c4bd9037606a7cc58857"
 dependencies = [
- "lemmy_db_schema 0.19.0-rc.12",
+ "lemmy_db_schema",
  "serde",
  "serde_with",
-]
-
-[[package]]
-name = "lemmy_db_views_actor"
-version = "0.18.5"
-source = "git+https://github.com/LemmyNet/lemmy.git?tag=0.18.5#1846ae9e19e7a2d8eb275c3f6406770a552f5647"
-dependencies = [
- "lemmy_db_schema 0.18.5",
- "serde",
- "serde_with",
- "typed-builder",
 ]
 
 [[package]]
@@ -826,7 +765,7 @@ version = "0.19.0-rc.12"
 source = "git+https://github.com/LemmyNet/lemmy.git?tag=0.19.0-rc.12#3f79eacb53c8a1bb0e23c4bd9037606a7cc58857"
 dependencies = [
  "chrono",
- "lemmy_db_schema 0.19.0-rc.12",
+ "lemmy_db_schema",
  "serde",
  "serde_with",
  "strum",
@@ -835,20 +774,10 @@ dependencies = [
 
 [[package]]
 name = "lemmy_db_views_moderator"
-version = "0.18.5"
-source = "git+https://github.com/LemmyNet/lemmy.git?tag=0.18.5#1846ae9e19e7a2d8eb275c3f6406770a552f5647"
-dependencies = [
- "lemmy_db_schema 0.18.5",
- "serde",
- "serde_with",
-]
-
-[[package]]
-name = "lemmy_db_views_moderator"
 version = "0.19.0-rc.12"
 source = "git+https://github.com/LemmyNet/lemmy.git?tag=0.19.0-rc.12#3f79eacb53c8a1bb0e23c4bd9037606a7cc58857"
 dependencies = [
- "lemmy_db_schema 0.19.0-rc.12",
+ "lemmy_db_schema",
  "serde",
  "serde_with",
 ]
