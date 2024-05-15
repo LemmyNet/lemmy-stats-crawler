@@ -1,5 +1,5 @@
 variables:
-  - &rust_image "rust:1"
+  - &rust_image "rust:1.78.0"
 
 steps:
   cargo_fmt:
@@ -17,7 +17,7 @@ steps:
       - event: pull_request
 
   prettier_check:
-    image: tmknom/prettier:3.0.0
+    image: tmknom/prettier:3.2.5
     commands:
       - prettier -c .
     when:
