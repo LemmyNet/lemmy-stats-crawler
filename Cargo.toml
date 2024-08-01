@@ -19,7 +19,7 @@ reqwest = { version = "0.11.23", default-features = false, features = [
   "json",
   "rustls-tls",
 ] }
-reqwest-middleware = "0.2.4"
+reqwest-middleware = "0.3.0"
 reqwest-retry = "0.3.0"
 serde = { version = "1.0.193", features = ["derive"] }
 anyhow = "1.0.76"
