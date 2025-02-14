@@ -76,7 +76,7 @@ pub async fn start_crawl(
     }
 
     // Sort by active monthly users descending
-    results.sort_unstable_by_key(|i| i.site_info.users_active_month());
+    results.sort_unstable_by_key(|i| i.site_info.site_view.counts.users_active_month);
     results.reverse();
     Ok(results)
 }
