@@ -1,6 +1,6 @@
-use crate::structs::{GetFederatedInstancesResponse, NodeInfo};
+use crate::structs::NodeInfo;
 use anyhow::{anyhow, Error};
-use lemmy_api_common_v019::site::GetSiteResponse;
+use lemmy_api_common_v019::site::{GetFederatedInstancesResponse, GetSiteResponse};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use reqwest_middleware::ClientWithMiddleware;
@@ -67,7 +67,7 @@ impl CrawlJob {
         if self.current_distance < self.params.max_distance {
             let crawled_instances = self.params.crawled_instances.lock().await;
             federated_instances
-                .federated_instances()
+                .federated_instances
                 .clone()
                 .map(|f| f.linked)
                 .unwrap_or_default()

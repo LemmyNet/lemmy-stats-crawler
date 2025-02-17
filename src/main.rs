@@ -36,10 +36,9 @@ pub struct Parameters {
     /// Silence all output
     #[structopt(short, long)]
     quiet: bool,
-    /// Generate output for joinlemmy, with unneded data filtered out
+    /// Generate output for joinlemmy, with unneded data filtered out (implies --json)
     #[structopt(long)]
     joinlemmy_output: bool,
-
 }
 
 #[tokio::main]
@@ -64,15 +63,37 @@ pub async fn main() -> Result<(), Error> {
     let mut total_stats = aggregate(instance_details);
 
     if params.joinlemmy_output {
-        total_stats.instance_details = total_stats.instance_details.into_iter()
-        // Filter out instances with other registration modes (closed dont allow signups and 
-        // open are often abused by bots)
-        .filter(|i| &i.site_info.site_view.local_site.registration_mode.to_string() == "RequireApplication")
-        // Require at least 5 monthly users
-        .filter(|i| i.site_info.site_view.counts.users_active_month > 5)
-        .collect();
-    }
-    if params.json {
+        total_stats.instance_details = total_stats
+            .instance_details
+            .into_iter()
+            // Filter out instances with other registration modes (closed dont allow signups and
+            // open are often abused by bots)
+            .filter(|i| {
+                &i.site_info
+                    .site_view
+                    .local_site
+                    .registration_mode
+                    .to_string()
+                    == "RequireApplication"
+            })
+            // Require at least 5 monthly users
+            .filter(|i| i.site_info.site_view.counts.users_active_month > 5)
+            // Exclude some unnecessary data to reduce output size
+            .map(|mut i| {
+                i.federated_instances.federated_instances = None;
+                i.site_info.admins = vec![];
+                i.site_info.all_languages = vec![];
+                i.site_info.discussion_languages = vec![];
+                i.site_info.custom_emojis = vec![];
+                i.site_info.taglines = vec![];
+                i.site_info.site_view.local_site.application_question = None;
+                i.site_info.site_view.local_site.legal_information = None;
+                i.site_info.site_view.site.public_key = String::new();
+                i
+            })
+            .collect();
+        println!("{}", serde_json::to_value(&total_stats)?);
+    } else if params.json {
         println!("{}", serde_json::to_string_pretty(&total_stats)?);
     } else {
         eprintln!("Crawl complete, took {}s", start_time.elapsed().as_secs());
