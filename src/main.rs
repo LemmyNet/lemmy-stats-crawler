@@ -36,6 +36,9 @@ pub struct Parameters {
     /// Silence all output
     #[structopt(short, long)]
     quiet: bool,
+    /// Generate output for joinlemmy, with unneded data filtered out (implies --json)
+    #[structopt(long)]
+    joinlemmy_output: bool,
 }
 
 #[tokio::main]
@@ -57,9 +60,40 @@ pub async fn main() -> Result<(), Error> {
         Duration::from_secs(params.timeout),
     )
     .await?;
-    let total_stats = aggregate(instance_details);
+    let mut total_stats = aggregate(instance_details);
 
-    if params.json {
+    if params.joinlemmy_output {
+        total_stats.instance_details = total_stats
+            .instance_details
+            .into_iter()
+            // Filter out instances with other registration modes (closed dont allow signups and
+            // open are often abused by bots)
+            .filter(|i| {
+                &i.site_info
+                    .site_view
+                    .local_site
+                    .registration_mode
+                    .to_string()
+                    == "RequireApplication"
+            })
+            // Require at least 5 monthly users
+            .filter(|i| i.site_info.site_view.counts.users_active_month > 5)
+            // Exclude some unnecessary data to reduce output size
+            .map(|mut i| {
+                i.federated_instances.federated_instances = None;
+                i.site_info.admins = vec![];
+                i.site_info.all_languages = vec![];
+                i.site_info.discussion_languages = vec![];
+                i.site_info.custom_emojis = vec![];
+                i.site_info.taglines = vec![];
+                i.site_info.site_view.local_site.application_question = None;
+                i.site_info.site_view.local_site.legal_information = None;
+                i.site_info.site_view.site.public_key = String::new();
+                i
+            })
+            .collect();
+        println!("{}", serde_json::to_value(&total_stats)?);
+    } else if params.json {
         println!("{}", serde_json::to_string_pretty(&total_stats)?);
     } else {
         eprintln!("Crawl complete, took {}s", start_time.elapsed().as_secs());
@@ -103,11 +137,11 @@ fn aggregate(instance_details: Vec<CrawlResult>) -> TotalStats {
     let mut crawled_instances = 0;
     for i in &instance_details {
         crawled_instances += 1;
-        total_users += i.site_info.total_users();
-        users_active_day += i.site_info.users_active_day();
-        users_active_week += i.site_info.users_active_week();
-        users_active_month += i.site_info.users_active_month();
-        users_active_halfyear += i.site_info.users_active_half_year();
+        total_users += i.site_info.site_view.counts.users;
+        users_active_day += i.site_info.site_view.counts.users_active_day;
+        users_active_week += i.site_info.site_view.counts.users_active_week;
+        users_active_month += i.site_info.site_view.counts.users_active_month;
+        users_active_halfyear += i.site_info.site_view.counts.users_active_half_year;
     }
     TotalStats {
         crawled_instances,

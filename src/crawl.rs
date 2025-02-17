@@ -1,5 +1,6 @@
-use crate::structs::{GetFederatedInstancesResponse, GetSiteResponse, NodeInfo};
+use crate::structs::NodeInfo;
 use anyhow::{anyhow, Error};
+use lemmy_api_common_v019::site::{GetFederatedInstancesResponse, GetSiteResponse};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use reqwest_middleware::ClientWithMiddleware;
@@ -58,7 +59,7 @@ impl CrawlJob {
 
         let (node_info, site_info, federated_instances) = self.fetch_instance_details().await?;
 
-        let version = Version::parse(&site_info.version())?;
+        let version = Version::parse(&site_info.version)?;
         if version < self.params.min_lemmy_version {
             return Err(anyhow!("too old lemmy version {version}"));
         }
@@ -66,7 +67,7 @@ impl CrawlJob {
         if self.current_distance < self.params.max_distance {
             let crawled_instances = self.params.crawled_instances.lock().await;
             federated_instances
-                .federated_instances()
+                .federated_instances
                 .clone()
                 .map(|f| f.linked)
                 .unwrap_or_default()
@@ -138,7 +139,7 @@ impl CrawlJob {
         }
 
         let site_info = site_info?.json::<GetSiteResponse>().await?;
-        let site_actor = site_info.actor_id();
+        let site_actor = &site_info.site_view.site.actor_id;
         if site_actor.domain() != Some(&self.domain) {
             return Err(anyhow!(
                 "wrong domain {}, expected {}",
