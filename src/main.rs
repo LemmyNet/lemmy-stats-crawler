@@ -78,6 +78,8 @@ pub async fn main() -> Result<(), Error> {
             })
             // Require at least 5 monthly users
             .filter(|i| i.site_info.site_view.counts.users_active_month > 5)
+            // Exclude nsfw instances
+            .filter(|i| i.site_info.site_view.site.content_warning.is_none())
             // Exclude some unnecessary data to reduce output size
             .map(|mut i| {
                 i.federated_instances.federated_instances = None;
