@@ -99,15 +99,7 @@ impl CrawlJob {
     async fn fetch_instance_details(
         &self,
     ) -> Result<(NodeInfo, GetSiteResponse, GetFederatedInstancesResponse), Error> {
-        // Lemmy 0.19.4 switched from nodeinfo 2.0 to 2.1 so we try both endpoints.
-        // Otherwise we would have to get the correct url from .well-known, which would
-        // require a separate request that can't be parallelized.
-        let node_info_20 = self
-            .params
-            .client
-            .get(format!("https://{}/nodeinfo/2.0.json", &self.domain))
-            .send();
-        let node_info_21 = self
+        let node_info = self
             .params
             .client
             .get(format!("https://{}/nodeinfo/2.1", &self.domain))
@@ -126,14 +118,10 @@ impl CrawlJob {
             ))
             .send();
 
-        let (node_info_20, node_info_21, site_info, federated_instances) =
-            join!(node_info_20, node_info_21, site_info, federated_instances);
+        let (node_info, site_info, federated_instances) =
+            join!(node_info, site_info, federated_instances);
 
-        let node_info = if let Ok(node_info) = node_info_20?.json::<NodeInfo>().await {
-            node_info
-        } else {
-            node_info_21?.json::<NodeInfo>().await?
-        };
+        let node_info =  node_info?.json::<NodeInfo>().await ?;
         if node_info.software.name != "lemmy" && node_info.software.name != "lemmybb" {
             return Err(anyhow!("wrong software {}", node_info.software.name));
         }
