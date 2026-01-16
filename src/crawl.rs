@@ -1,13 +1,18 @@
 use crate::structs::NodeInfo;
 use anyhow::{anyhow, Error};
 use lemmy_api_common_v019::site::{GetFederatedInstancesResponse, GetSiteResponse};
+use log::warn;
+use maxminddb::geoip2;
+use maxminddb::Reader;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use reqwest_middleware::ClientWithMiddleware;
 use semver::Version;
 use serde::Serialize;
 use std::collections::HashSet;
+use std::net::ToSocketAddrs;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use tokio::join;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::Mutex;
@@ -35,11 +40,18 @@ pub struct CrawlParams {
 }
 
 #[derive(Debug, Serialize)]
+pub struct GeoIp {
+    pub iso_code: String,
+    pub name: String,
+}
+
+#[derive(Debug, Serialize)]
 pub struct CrawlResult {
     pub domain: String,
     pub node_info: NodeInfo,
     pub site_info: GetSiteResponse,
     pub federated_instances: GetFederatedInstancesResponse,
+    pub geo_ip: Option<GeoIp>,
 }
 
 impl CrawlJob {
@@ -90,6 +102,10 @@ impl CrawlJob {
             node_info,
             site_info,
             federated_instances,
+            geo_ip: Self::geo_ip(&self.domain)
+                .inspect_err(|e| warn!("GeoIp failed for {}: {e}", &self.domain))
+                .ok()
+                .flatten(),
         };
         self.params.result_sender.send(crawl_result).unwrap();
 
@@ -121,7 +137,7 @@ impl CrawlJob {
         let (node_info, site_info, federated_instances) =
             join!(node_info, site_info, federated_instances);
 
-        let node_info =  node_info?.json::<NodeInfo>().await ?;
+        let node_info = node_info?.json::<NodeInfo>().await?;
         if node_info.software.name != "lemmy" && node_info.software.name != "lemmybb" {
             return Err(anyhow!("wrong software {}", node_info.software.name));
         }
@@ -141,5 +157,30 @@ impl CrawlJob {
             .await?;
 
         Ok((node_info, site_info, federated_instances))
+    }
+
+    fn geo_ip(domain: &str) -> Result<Option<GeoIp>, Error> {
+        let mut sock_addrs = (domain, 0).to_socket_addrs()?;
+        let ip = sock_addrs.next().unwrap().ip();
+
+        // From https://github.com/wp-statistics/GeoLite2-Country
+        static READER: LazyLock<Reader<Vec<u8>>> = LazyLock::new(|| {
+            Reader::open_readfile("GeoLite2-Country.mmdb").expect("parse geolite db")
+        });
+
+        let result = READER.lookup(ip)?.decode::<geoip2::Country>()?;
+        let geoip = result
+            .and_then(|r| {
+                if let (Some(c), Some(n)) = (r.country.iso_code, r.country.names.english) {
+                    Some((c, n))
+                } else {
+                    None
+                }
+            })
+            .map(|(c, n)| GeoIp {
+                iso_code: c.to_string(),
+                name: n.to_string(),
+            });
+        Ok(geoip)
     }
 }

@@ -90,7 +90,9 @@ pub async fn main() -> Result<(), Error> {
                 i.site_info.taglines = vec![];
                 i.site_info.site_view.local_site.application_question = None;
                 i.site_info.site_view.local_site.legal_information = None;
+                i.site_info.site_view.local_site.slur_filter_regex = None;
                 i.site_info.site_view.site.public_key = String::new();
+                i.site_info.blocked_urls = vec![];
                 i
             })
             .collect();
