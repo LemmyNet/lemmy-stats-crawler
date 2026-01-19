@@ -32,3 +32,6 @@ derive-new = "0.7.0"
 stderrlog = "0.6.0"
 clap = { version = "4.5", features = ["derive"] }
 regex = "1.12.2"
+maxminddb = "0.27"
+flate2 = "1.0"
+chrono = "0.4.43"

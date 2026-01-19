@@ -1,4 +1,5 @@
 use anyhow::Error;
+use chrono::{DateTime, Utc};
 use clap::Parser;
 use lemmy_stats_crawler::crawl::CrawlResult;
 use lemmy_stats_crawler::start_crawl;
@@ -90,7 +91,9 @@ pub async fn main() -> Result<(), Error> {
                 i.site_info.taglines = vec![];
                 i.site_info.site_view.local_site.application_question = None;
                 i.site_info.site_view.local_site.legal_information = None;
+                i.site_info.site_view.local_site.slur_filter_regex = None;
                 i.site_info.site_view.site.public_key = String::new();
+                i.site_info.blocked_urls = vec![];
                 i
             })
             .collect();
@@ -128,6 +131,7 @@ struct TotalStats {
     users_active_month: i64,
     users_active_halfyear: i64,
     instance_details: Vec<CrawlResult>,
+    time: DateTime<Utc>,
 }
 
 fn aggregate(instance_details: Vec<CrawlResult>) -> TotalStats {
@@ -153,5 +157,6 @@ fn aggregate(instance_details: Vec<CrawlResult>) -> TotalStats {
         users_active_halfyear,
         users_active_month,
         instance_details,
+        time: Utc::now(),
     }
 }

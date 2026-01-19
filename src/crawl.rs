@@ -1,13 +1,25 @@
 use crate::structs::NodeInfo;
 use anyhow::{anyhow, Error};
+use flate2::bufread::GzDecoder;
 use lemmy_api_common_v019::site::{GetFederatedInstancesResponse, GetSiteResponse};
+use log::warn;
+use maxminddb::geoip2;
+use maxminddb::geoip2::city::City;
+use maxminddb::geoip2::city::Continent;
+use maxminddb::geoip2::country::Country;
+use maxminddb::Reader;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use reqwest_middleware::ClientWithMiddleware;
 use semver::Version;
 use serde::Serialize;
 use std::collections::HashSet;
+use std::fs::File;
+use std::io::BufReader;
+use std::io::Read;
+use std::net::ToSocketAddrs;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use tokio::join;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::Mutex;
@@ -35,11 +47,19 @@ pub struct CrawlParams {
 }
 
 #[derive(Debug, Serialize)]
+pub struct GeoIp<'a> {
+    pub city: City<'a>,
+    pub country: Country<'a>,
+    pub continent: Continent<'a>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct CrawlResult {
     pub domain: String,
     pub node_info: NodeInfo,
     pub site_info: GetSiteResponse,
     pub federated_instances: GetFederatedInstancesResponse,
+    pub geo_ip: Option<GeoIp<'static>>,
 }
 
 impl CrawlJob {
@@ -90,6 +110,10 @@ impl CrawlJob {
             node_info,
             site_info,
             federated_instances,
+            geo_ip: Self::geo_ip(self.domain.clone())
+                .inspect_err(|e| warn!("GeoIp failed for {}: {e}", &self.domain))
+                .ok()
+                .flatten(),
         };
         self.params.result_sender.send(crawl_result).unwrap();
 
@@ -121,7 +145,7 @@ impl CrawlJob {
         let (node_info, site_info, federated_instances) =
             join!(node_info, site_info, federated_instances);
 
-        let node_info =  node_info?.json::<NodeInfo>().await ?;
+        let node_info = node_info?.json::<NodeInfo>().await?;
         if node_info.software.name != "lemmy" && node_info.software.name != "lemmybb" {
             return Err(anyhow!("wrong software {}", node_info.software.name));
         }
@@ -141,5 +165,27 @@ impl CrawlJob {
             .await?;
 
         Ok((node_info, site_info, federated_instances))
+    }
+
+    fn geo_ip(domain: String) -> Result<Option<GeoIp<'static>>, Error> {
+        let mut sock_addrs = (domain, 0).to_socket_addrs()?;
+        let ip = sock_addrs.next().unwrap().ip();
+
+        // From https://github.com/wp-statistics/GeoLite2-Country
+        static READER: LazyLock<Reader<Vec<u8>>> = LazyLock::new(|| {
+            let input = BufReader::new(File::open("GeoLite2-City.mmdb.gz").unwrap());
+            let mut buffer = vec![];
+            let mut gz = GzDecoder::new(input);
+            gz.read_to_end(&mut buffer).unwrap();
+            Reader::from_source(buffer).unwrap()
+        });
+
+        let result = READER.lookup(ip)?.decode::<geoip2::City>()?;
+        let geoip = result.map(|r| GeoIp {
+            city: r.city,
+            country: r.country,
+            continent: r.continent,
+        });
+        Ok(geoip)
     }
 }
