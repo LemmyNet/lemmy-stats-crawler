@@ -1,4 +1,5 @@
 use anyhow::Error;
+use chrono::{DateTime, Utc};
 use clap::Parser;
 use lemmy_stats_crawler::crawl::CrawlResult;
 use lemmy_stats_crawler::start_crawl;
@@ -130,6 +131,7 @@ struct TotalStats {
     users_active_month: i64,
     users_active_halfyear: i64,
     instance_details: Vec<CrawlResult>,
+    time: DateTime<Utc>,
 }
 
 fn aggregate(instance_details: Vec<CrawlResult>) -> TotalStats {
@@ -155,5 +157,6 @@ fn aggregate(instance_details: Vec<CrawlResult>) -> TotalStats {
         users_active_halfyear,
         users_active_month,
         instance_details,
+        time: Utc::now(),
     }
 }

@@ -1090,6 +1090,7 @@ name = "lemmy-stats-crawler"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "derive-new",
  "flate2",
