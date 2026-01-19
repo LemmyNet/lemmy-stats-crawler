@@ -1,5 +1,6 @@
 use crate::structs::NodeInfo;
 use anyhow::{anyhow, Error};
+use flate2::bufread::GzDecoder;
 use lemmy_api_common_v019::site::{GetFederatedInstancesResponse, GetSiteResponse};
 use log::warn;
 use maxminddb::geoip2;
@@ -13,6 +14,9 @@ use reqwest_middleware::ClientWithMiddleware;
 use semver::Version;
 use serde::Serialize;
 use std::collections::HashSet;
+use std::fs::File;
+use std::io::BufReader;
+use std::io::Read;
 use std::net::ToSocketAddrs;
 use std::sync::Arc;
 use std::sync::LazyLock;
@@ -169,7 +173,11 @@ impl CrawlJob {
 
         // From https://github.com/wp-statistics/GeoLite2-Country
         static READER: LazyLock<Reader<Vec<u8>>> = LazyLock::new(|| {
-            Reader::open_readfile("GeoLite2-City.mmdb").expect("parse geolite db")
+            let input = BufReader::new(File::open("GeoLite2-City.mmdb.gz").unwrap());
+            let mut buffer = vec![];
+            let mut gz = GzDecoder::new(input);
+            gz.read_to_end(&mut buffer).unwrap();
+            Reader::from_source(buffer).unwrap()
         });
 
         let result = READER.lookup(ip)?.decode::<geoip2::City>()?;
