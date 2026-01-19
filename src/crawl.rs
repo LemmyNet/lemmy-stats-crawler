@@ -3,6 +3,9 @@ use anyhow::{anyhow, Error};
 use lemmy_api_common_v019::site::{GetFederatedInstancesResponse, GetSiteResponse};
 use log::warn;
 use maxminddb::geoip2;
+use maxminddb::geoip2::city::City;
+use maxminddb::geoip2::city::Continent;
+use maxminddb::geoip2::country::Country;
 use maxminddb::Reader;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -40,9 +43,10 @@ pub struct CrawlParams {
 }
 
 #[derive(Debug, Serialize)]
-pub struct GeoIp {
-    pub iso_code: String,
-    pub name: String,
+pub struct GeoIp<'a> {
+    pub city: City<'a>,
+    pub country: Country<'a>,
+    pub continent: Continent<'a>,
 }
 
 #[derive(Debug, Serialize)]
@@ -51,7 +55,7 @@ pub struct CrawlResult {
     pub node_info: NodeInfo,
     pub site_info: GetSiteResponse,
     pub federated_instances: GetFederatedInstancesResponse,
-    pub geo_ip: Option<GeoIp>,
+    pub geo_ip: Option<GeoIp<'static>>,
 }
 
 impl CrawlJob {
@@ -102,7 +106,7 @@ impl CrawlJob {
             node_info,
             site_info,
             federated_instances,
-            geo_ip: Self::geo_ip(&self.domain)
+            geo_ip: Self::geo_ip(self.domain.clone())
                 .inspect_err(|e| warn!("GeoIp failed for {}: {e}", &self.domain))
                 .ok()
                 .flatten(),
@@ -159,28 +163,21 @@ impl CrawlJob {
         Ok((node_info, site_info, federated_instances))
     }
 
-    fn geo_ip(domain: &str) -> Result<Option<GeoIp>, Error> {
+    fn geo_ip(domain: String) -> Result<Option<GeoIp<'static>>, Error> {
         let mut sock_addrs = (domain, 0).to_socket_addrs()?;
         let ip = sock_addrs.next().unwrap().ip();
 
         // From https://github.com/wp-statistics/GeoLite2-Country
         static READER: LazyLock<Reader<Vec<u8>>> = LazyLock::new(|| {
-            Reader::open_readfile("GeoLite2-Country.mmdb").expect("parse geolite db")
+            Reader::open_readfile("GeoLite2-City.mmdb").expect("parse geolite db")
         });
 
-        let result = READER.lookup(ip)?.decode::<geoip2::Country>()?;
-        let geoip = result
-            .and_then(|r| {
-                if let (Some(c), Some(n)) = (r.country.iso_code, r.country.names.english) {
-                    Some((c, n))
-                } else {
-                    None
-                }
-            })
-            .map(|(c, n)| GeoIp {
-                iso_code: c.to_string(),
-                name: n.to_string(),
-            });
+        let result = READER.lookup(ip)?.decode::<geoip2::City>()?;
+        let geoip = result.map(|r| GeoIp {
+            city: r.city,
+            country: r.country,
+            continent: r.continent,
+        });
         Ok(geoip)
     }
 }
