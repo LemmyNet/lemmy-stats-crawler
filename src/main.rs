@@ -63,7 +63,7 @@ pub async fn main() -> Result<(), Error> {
     )
     .await?;
 
-    let  total_stats = aggregate(instance_details);
+    let total_stats = aggregate(instance_details);
 
     eprintln!("Writing output to {}", &params.out_path);
     create_dir_all(&params.out_path)?;
@@ -72,27 +72,24 @@ pub async fn main() -> Result<(), Error> {
     file.write_all(serde_json::to_string_pretty(&total_stats)?.as_bytes())?;
 
     let mut file = File::create(format!("{}/joinlemmy.json", params.out_path))?;
-    let joinlemmy_data = reduce_joinlemmy_data(total_stats);
-    file.write_all(serde_json::to_string_pretty(&joinlemmy_data)?.as_bytes())?;
+    let joinlemmy = reduce_joinlemmy_data(total_stats);
+    file.write_all(serde_json::to_string_pretty(&joinlemmy)?.as_bytes())?;
 
     eprintln!("Crawl complete, took {}s", start_time.elapsed().as_secs());
-    eprintln!(
-        "Number of Lemmy instances: {}",
-        joinlemmy_data.crawled_instances
-    );
-    eprintln!("Total users: {}", joinlemmy_data.total_users);
+    eprintln!("Number of Lemmy instances: {}", joinlemmy.crawled_instances);
+    eprintln!("Total users: {}", joinlemmy.total_users);
     eprintln!(
         "Half year active users: {}",
-        joinlemmy_data.users_active_halfyear
+        joinlemmy.users_active_halfyear
     );
-    eprintln!("Monthly active users: {}", joinlemmy_data.users_active_month);
-    eprintln!("Weekly active users: {}", joinlemmy_data.users_active_week);
-    eprintln!("Daily active users: {}", joinlemmy_data.users_active_day);
+    eprintln!("Monthly active users: {}", joinlemmy.users_active_month);
+    eprintln!("Weekly active users: {}", joinlemmy.users_active_week);
+    eprintln!("Daily active users: {}", joinlemmy.users_active_day);
 
     Ok(())
 }
 
-fn reduce_joinlemmy_data(mut total_stats: TotalStats)-> TotalStats {
+fn reduce_joinlemmy_data(mut total_stats: TotalStats) -> TotalStats {
     total_stats.instance_details = total_stats
         .instance_details
         .into_iter()
