@@ -4,7 +4,11 @@ use clap::Parser;
 use lemmy_stats_crawler::crawl::CrawlResult;
 use lemmy_stats_crawler::start_crawl;
 use serde::Serialize;
-use std::time::{Duration, Instant};
+use std::{
+    fs::{create_dir_all, File},
+    io::Write,
+    time::{Duration, Instant},
+};
 
 #[derive(Parser)]
 pub struct Parameters {
@@ -19,9 +23,6 @@ pub struct Parameters {
         default_value = "ds9.lemmy.ml,enterprise.lemmy.ml,voyager.lemmy.ml,test.lemmy.ml"
     )]
     pub exclude_instances: Vec<String>,
-    /// Prints output in machine readable JSON format
-    #[structopt(long)]
-    json: bool,
     /// Maximum crawl distance from start_instances
     #[structopt(short, long, default_value = "10")]
     pub max_crawl_distance: u8,
@@ -37,9 +38,9 @@ pub struct Parameters {
     /// Silence all output
     #[structopt(short, long)]
     quiet: bool,
-    /// Generate output for joinlemmy, with unneded data filtered out (implies --json)
-    #[structopt(long)]
-    joinlemmy_output: bool,
+    /// Folder to write crawl results
+    #[structopt(short, long, default_value = "out")]
+    out_path: String,
 }
 
 #[tokio::main]
@@ -61,63 +62,68 @@ pub async fn main() -> Result<(), Error> {
         Duration::from_secs(params.timeout),
     )
     .await?;
-    let mut total_stats = aggregate(instance_details);
 
-    if params.joinlemmy_output {
-        total_stats.instance_details = total_stats
-            .instance_details
-            .into_iter()
-            // Filter out instances with other registration modes (closed dont allow signups and
-            // open are often abused by bots)
-            .filter(|i| {
-                &i.site_info
-                    .site_view
-                    .local_site
-                    .registration_mode
-                    .to_string()
-                    == "RequireApplication"
-            })
-            // Require at least 5 monthly users
-            .filter(|i| i.site_info.site_view.counts.users_active_month > 5)
-            // Exclude nsfw instances
-            .filter(|i| i.site_info.site_view.site.content_warning.is_none())
-            // Exclude some unnecessary data to reduce output size
-            .map(|mut i| {
-                i.federated_instances.federated_instances = None;
-                i.site_info.admins = vec![];
-                i.site_info.all_languages = vec![];
-                i.site_info.discussion_languages = vec![];
-                i.site_info.custom_emojis = vec![];
-                i.site_info.taglines = vec![];
-                i.site_info.site_view.local_site.application_question = None;
-                i.site_info.site_view.local_site.legal_information = None;
-                i.site_info.site_view.local_site.slur_filter_regex = None;
-                i.site_info.site_view.site.public_key = String::new();
-                i.site_info.blocked_urls = vec![];
-                i
-            })
-            .collect();
-        println!("{}", serde_json::to_value(&total_stats)?);
-    } else if params.json {
-        println!("{}", serde_json::to_string_pretty(&total_stats)?);
-    } else {
-        eprintln!("Crawl complete, took {}s", start_time.elapsed().as_secs());
-        eprintln!(
-            "Number of Lemmy instances: {}",
-            total_stats.crawled_instances
-        );
-        eprintln!("Total users: {}", total_stats.total_users);
-        eprintln!(
-            "Half year active users: {}",
-            total_stats.users_active_halfyear
-        );
-        eprintln!("Monthly active users: {}", total_stats.users_active_month);
-        eprintln!("Weekly active users: {}", total_stats.users_active_week);
-        eprintln!("Daily active users: {}", total_stats.users_active_day);
-        eprintln!();
-        eprintln!("Use --json flag to get machine readable output");
-    }
+    let total_stats = aggregate(instance_details);
+
+    eprintln!("Writing output to {}", &params.out_path);
+    create_dir_all(&params.out_path)?;
+
+    let mut file = File::create(format!("{}/full.json", params.out_path))?;
+    file.write_all(serde_json::to_string_pretty(&total_stats)?.as_bytes())?;
+
+    let mut file = File::create(format!("{}/joinlemmy.json", params.out_path))?;
+    let joinlemmy = reduce_joinlemmy_data(total_stats);
+    file.write_all(serde_json::to_string_pretty(&joinlemmy)?.as_bytes())?;
+
+    eprintln!("Crawl complete, took {}s", start_time.elapsed().as_secs());
+    eprintln!("Number of Lemmy instances: {}", joinlemmy.crawled_instances);
+    eprintln!("Total users: {}", joinlemmy.total_users);
+    eprintln!(
+        "Half year active users: {}",
+        joinlemmy.users_active_halfyear
+    );
+    eprintln!("Monthly active users: {}", joinlemmy.users_active_month);
+    eprintln!("Weekly active users: {}", joinlemmy.users_active_week);
+    eprintln!("Daily active users: {}", joinlemmy.users_active_day);
+
     Ok(())
+}
+
+fn reduce_joinlemmy_data(mut total_stats: TotalStats) -> TotalStats {
+    total_stats.instance_details = total_stats
+        .instance_details
+        .into_iter()
+        // Filter out instances with other registration modes (closed dont allow signups and
+        // open are often abused by bots)
+        .filter(|i| {
+            &i.site_info
+                .site_view
+                .local_site
+                .registration_mode
+                .to_string()
+                == "RequireApplication"
+        })
+        // Require at least 5 monthly users
+        .filter(|i| i.site_info.site_view.counts.users_active_month > 5)
+        // Exclude nsfw instances
+        .filter(|i| i.site_info.site_view.site.content_warning.is_none())
+        // Exclude some unnecessary data to reduce output size
+        .map(|mut i| {
+            i.federated_instances.federated_instances = None;
+            i.site_info.admins = vec![];
+            i.site_info.all_languages = vec![];
+            i.site_info.discussion_languages = vec![];
+            i.site_info.custom_emojis = vec![];
+            i.site_info.taglines = vec![];
+            i.site_info.site_view.local_site.application_question = None;
+            i.site_info.site_view.local_site.legal_information = None;
+            i.site_info.site_view.local_site.slur_filter_regex = None;
+            i.site_info.site_view.site.public_key = String::new();
+            i.site_info.blocked_urls = vec![];
+            i
+        })
+        .collect();
+    total_stats
 }
 
 // TODO: lemmy stores these numbers in SiteAggregates, would be good to simply use that as a member
