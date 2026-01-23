@@ -109,7 +109,6 @@ fn reduce_joinlemmy_data(mut total_stats: TotalStats) -> TotalStats {
         .filter(|i| i.site_info.site_view.site.content_warning.is_none())
         // Exclude some unnecessary data to reduce output size
         .map(|mut i| {
-            i.federated_instances.federated_instances = None;
             i.site_info.admins = vec![];
             i.site_info.all_languages = vec![];
             i.site_info.discussion_languages = vec![];

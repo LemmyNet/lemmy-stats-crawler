@@ -58,7 +58,6 @@ pub struct CrawlResult {
     pub domain: String,
     pub node_info: NodeInfo,
     pub site_info: GetSiteResponse,
-    pub federated_instances: GetFederatedInstancesResponse,
     pub geo_ip: Option<GeoIp<'static>>,
 }
 
@@ -109,7 +108,6 @@ impl CrawlJob {
             domain: self.domain.clone(),
             node_info,
             site_info,
-            federated_instances,
             geo_ip: Self::geo_ip(self.domain.clone())
                 .inspect_err(|e| warn!("GeoIp failed for {}: {e}", &self.domain))
                 .ok()
