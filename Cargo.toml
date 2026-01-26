@@ -14,7 +14,9 @@ strip = "symbols"
 debug = 0
 
 [dependencies]
-lemmy_api_common_v019 = { package = "lemmy_api_common", version = "0.19.15" }
+# Avoid upgrading this dependency, otherwise older instances cannot be crawled as 
+# API becomes incompatible
+lemmy_api_common_v019 = { package = "lemmy_api_common", version = "0.19.0" }
 reqwest = { version = "0.13.1", default-features = false, features = [
   "json",
   "rustls",
