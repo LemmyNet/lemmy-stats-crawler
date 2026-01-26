@@ -7,7 +7,7 @@ use serde::Serialize;
 use std::{
     fs::{create_dir_all, File},
     io::Write,
-    time::{Duration, Instant},
+    time::{Duration},
 };
 
 #[derive(Parser)]
@@ -53,7 +53,7 @@ pub async fn main() -> Result<(), Error> {
         .init()?;
 
     eprintln!("Crawling...");
-    let start_time = Instant::now();
+    let start_time = Utc::now();
     let instance_details = start_crawl(
         params.start_instances,
         params.exclude_instances,
@@ -63,7 +63,7 @@ pub async fn main() -> Result<(), Error> {
     )
     .await?;
 
-    let total_stats = aggregate(instance_details);
+    let total_stats = aggregate(instance_details,start_time);
 
     eprintln!("Writing output to {}", &params.out_path);
     create_dir_all(&params.out_path)?;
@@ -75,7 +75,7 @@ pub async fn main() -> Result<(), Error> {
     let joinlemmy = reduce_joinlemmy_data(total_stats);
     file.write_all(serde_json::to_string_pretty(&joinlemmy)?.as_bytes())?;
 
-    eprintln!("Crawl complete, took {}s", start_time.elapsed().as_secs());
+    eprintln!("Crawl complete");
     eprintln!("Number of Lemmy instances: {}", joinlemmy.crawled_instances);
     eprintln!("Total users: {}", joinlemmy.total_users);
     eprintln!(
@@ -135,11 +135,12 @@ struct TotalStats {
     users_active_week: i64,
     users_active_month: i64,
     users_active_halfyear: i64,
+    start_time: DateTime<Utc>,
+    end_time: DateTime<Utc>,
     instance_details: Vec<CrawlResult>,
-    time: DateTime<Utc>,
 }
 
-fn aggregate(instance_details: Vec<CrawlResult>) -> TotalStats {
+fn aggregate(instance_details: Vec<CrawlResult>,start_time:DateTime<Utc>) -> TotalStats {
     let mut total_users = 0;
     let mut users_active_day = 0;
     let mut users_active_week = 0;
@@ -161,7 +162,8 @@ fn aggregate(instance_details: Vec<CrawlResult>) -> TotalStats {
         users_active_week,
         users_active_halfyear,
         users_active_month,
+start_time,
+        end_time: Utc::now(),
         instance_details,
-        time: Utc::now(),
     }
 }
