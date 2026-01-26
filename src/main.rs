@@ -7,7 +7,7 @@ use serde::Serialize;
 use std::{
     fs::{create_dir_all, File},
     io::Write,
-    time::{Duration},
+    time::Duration,
 };
 
 #[derive(Parser)]
@@ -63,7 +63,7 @@ pub async fn main() -> Result<(), Error> {
     )
     .await?;
 
-    let total_stats = aggregate(instance_details,start_time);
+    let total_stats = aggregate(instance_details, start_time);
 
     eprintln!("Writing output to {}", &params.out_path);
     create_dir_all(&params.out_path)?;
@@ -140,7 +140,7 @@ struct TotalStats {
     instance_details: Vec<CrawlResult>,
 }
 
-fn aggregate(instance_details: Vec<CrawlResult>,start_time:DateTime<Utc>) -> TotalStats {
+fn aggregate(instance_details: Vec<CrawlResult>, start_time: DateTime<Utc>) -> TotalStats {
     let mut total_users = 0;
     let mut users_active_day = 0;
     let mut users_active_week = 0;
@@ -162,7 +162,7 @@ fn aggregate(instance_details: Vec<CrawlResult>,start_time:DateTime<Utc>) -> Tot
         users_active_week,
         users_active_halfyear,
         users_active_month,
-start_time,
+        start_time,
         end_time: Utc::now(),
         instance_details,
     }

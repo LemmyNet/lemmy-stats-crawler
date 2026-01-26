@@ -1,4 +1,3 @@
-use crate::structs::NodeInfo;
 use anyhow::{anyhow, Error};
 use flate2::bufread::GzDecoder;
 use lemmy_api_common_v019::site::{GetFederatedInstancesResponse, GetSiteResponse};
@@ -56,7 +55,6 @@ pub struct GeoIp<'a> {
 #[derive(Debug, Serialize)]
 pub struct CrawlResult {
     pub domain: String,
-    pub node_info: NodeInfo,
     pub site_info: GetSiteResponse,
     pub geo_ip: Option<GeoIp<'static>>,
 }
@@ -76,7 +74,7 @@ impl CrawlJob {
             }
         }
 
-        let (node_info, site_info, federated_instances) = self.fetch_instance_details().await?;
+        let (site_info, federated_instances) = self.fetch_instance_details().await?;
 
         let version = Version::parse(&site_info.version)?;
         if version < self.params.min_lemmy_version {
@@ -106,7 +104,6 @@ impl CrawlJob {
 
         let crawl_result = CrawlResult {
             domain: self.domain.clone(),
-            node_info,
             site_info,
             geo_ip: Self::geo_ip(self.domain.clone())
                 .inspect_err(|e| warn!("GeoIp failed for {}: {e}", &self.domain))
@@ -120,12 +117,7 @@ impl CrawlJob {
 
     async fn fetch_instance_details(
         &self,
-    ) -> Result<(NodeInfo, GetSiteResponse, GetFederatedInstancesResponse), Error> {
-        let node_info = self
-            .params
-            .client
-            .get(format!("https://{}/nodeinfo/2.1", &self.domain))
-            .send();
+    ) -> Result<(GetSiteResponse, GetFederatedInstancesResponse), Error> {
         let site_info = self
             .params
             .client
@@ -140,13 +132,7 @@ impl CrawlJob {
             ))
             .send();
 
-        let (node_info, site_info, federated_instances) =
-            join!(node_info, site_info, federated_instances);
-
-        let node_info = node_info?.json::<NodeInfo>().await?;
-        if node_info.software.name != "lemmy" && node_info.software.name != "lemmybb" {
-            return Err(anyhow!("wrong software {}", node_info.software.name));
-        }
+        let (site_info, federated_instances) = join!(site_info, federated_instances);
 
         let site_info = site_info?.json::<GetSiteResponse>().await?;
         let site_actor = &site_info.site_view.site.actor_id;
@@ -162,7 +148,7 @@ impl CrawlJob {
             .json::<GetFederatedInstancesResponse>()
             .await?;
 
-        Ok((node_info, site_info, federated_instances))
+        Ok((site_info, federated_instances))
     }
 
     fn geo_ip(domain: String) -> Result<Option<GeoIp<'static>>, Error> {
