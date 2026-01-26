@@ -1,8 +1,10 @@
 use anyhow::Error;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use clap::Parser;
-use lemmy_stats_crawler::crawl::CrawlResult;
-use lemmy_stats_crawler::start_crawl;
+use lemmy_stats_crawler::{
+    aggregate::{full_instance_data, joinlemmy_instance_data, minimal_instance_data},
+    start_crawl,
+};
 use serde::Serialize;
 use std::{
     fs::{create_dir_all, File},
@@ -63,107 +65,38 @@ pub async fn main() -> Result<(), Error> {
     )
     .await?;
 
-    let total_stats = aggregate(instance_details, start_time);
+    let total_stats = full_instance_data(instance_details, start_time);
 
     eprintln!("Writing output to {}", &params.out_path);
-    create_dir_all(&params.out_path)?;
 
-    let mut file = File::create(format!("{}/full.json", params.out_path))?;
-    file.write_all(serde_json::to_string_pretty(&total_stats)?.as_bytes())?;
+    write(&total_stats, "instances/full.json", &params.out_path)?;
 
-    let mut file = File::create(format!("{}/joinlemmy.json", params.out_path))?;
-    let joinlemmy = reduce_joinlemmy_data(total_stats);
-    file.write_all(serde_json::to_string_pretty(&joinlemmy)?.as_bytes())?;
+    let joinlemmy = joinlemmy_instance_data(&total_stats);
+    write(&joinlemmy, "instances/joinlemmy.json", &params.out_path)?;
+
+    let minimal = minimal_instance_data(&total_stats);
+    write(&minimal, "instances/minimal.json", &params.out_path)?;
 
     eprintln!("Crawl complete");
-    eprintln!("Number of Lemmy instances: {}", joinlemmy.crawled_instances);
-    eprintln!("Total users: {}", joinlemmy.total_users);
+    eprintln!(
+        "Number of Lemmy instances: {}",
+        total_stats.crawled_instances
+    );
+    eprintln!("Total users: {}", total_stats.total_users);
     eprintln!(
         "Half year active users: {}",
-        joinlemmy.users_active_halfyear
+        total_stats.users_active_halfyear
     );
-    eprintln!("Monthly active users: {}", joinlemmy.users_active_month);
-    eprintln!("Weekly active users: {}", joinlemmy.users_active_week);
-    eprintln!("Daily active users: {}", joinlemmy.users_active_day);
+    eprintln!("Monthly active users: {}", total_stats.users_active_month);
+    eprintln!("Weekly active users: {}", total_stats.users_active_week);
+    eprintln!("Daily active users: {}", total_stats.users_active_day);
 
     Ok(())
 }
 
-fn reduce_joinlemmy_data(mut total_stats: TotalStats) -> TotalStats {
-    total_stats.instance_details = total_stats
-        .instance_details
-        .into_iter()
-        // Filter out instances with other registration modes (closed dont allow signups and
-        // open are often abused by bots)
-        .filter(|i| {
-            &i.site_info
-                .site_view
-                .local_site
-                .registration_mode
-                .to_string()
-                == "RequireApplication"
-        })
-        // Require at least 5 monthly users
-        .filter(|i| i.site_info.site_view.counts.users_active_month > 5)
-        // Exclude nsfw instances
-        .filter(|i| i.site_info.site_view.site.content_warning.is_none())
-        // Exclude some unnecessary data to reduce output size
-        .map(|mut i| {
-            i.site_info.admins = vec![];
-            i.site_info.all_languages = vec![];
-            i.site_info.discussion_languages = vec![];
-            i.site_info.custom_emojis = vec![];
-            i.site_info.taglines = vec![];
-            i.site_info.site_view.local_site.application_question = None;
-            i.site_info.site_view.local_site.legal_information = None;
-            i.site_info.site_view.local_site.slur_filter_regex = None;
-            i.site_info.site_view.site.public_key = String::new();
-            i.site_info.blocked_urls = vec![];
-            i
-        })
-        .collect();
-    total_stats
-}
-
-// TODO: lemmy stores these numbers in SiteAggregates, would be good to simply use that as a member
-//       (to avoid many members). but SiteAggregates also has id, site_id fields
-#[derive(Serialize)]
-struct TotalStats {
-    crawled_instances: i32,
-    total_users: i64,
-    users_active_day: i64,
-    users_active_week: i64,
-    users_active_month: i64,
-    users_active_halfyear: i64,
-    start_time: DateTime<Utc>,
-    end_time: DateTime<Utc>,
-    instance_details: Vec<CrawlResult>,
-}
-
-fn aggregate(instance_details: Vec<CrawlResult>, start_time: DateTime<Utc>) -> TotalStats {
-    let mut total_users = 0;
-    let mut users_active_day = 0;
-    let mut users_active_week = 0;
-    let mut users_active_month = 0;
-    let mut users_active_halfyear = 0;
-    let mut crawled_instances = 0;
-    for i in &instance_details {
-        crawled_instances += 1;
-        total_users += i.site_info.site_view.counts.users;
-        users_active_day += i.site_info.site_view.counts.users_active_day;
-        users_active_week += i.site_info.site_view.counts.users_active_week;
-        users_active_month += i.site_info.site_view.counts.users_active_month;
-        users_active_halfyear += i.site_info.site_view.counts.users_active_half_year;
-    }
-    TotalStats {
-        crawled_instances,
-        total_users,
-        users_active_day,
-        users_active_week,
-        users_active_halfyear,
-        users_active_month,
-        start_time,
-        end_time: Utc::now(),
-        instance_details,
-    }
+fn write<T: Serialize>(data: &T, file: &'static str, out_path: &str) -> Result<(), Error> {
+    create_dir_all(format!("{}/instances", out_path))?;
+    let mut file = File::create(format!("{}/{file}", out_path))?;
+    file.write_all(serde_json::to_string_pretty(&data)?.as_bytes())?;
+    Ok(())
 }

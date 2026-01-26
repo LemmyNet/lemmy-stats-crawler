@@ -45,14 +45,14 @@ pub struct CrawlParams {
     client: ClientWithMiddleware,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct GeoIp<'a> {
     pub city: City<'a>,
     pub country: Country<'a>,
     pub continent: Continent<'a>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct CrawlResult {
     pub domain: String,
     pub site_info: GetSiteResponse,

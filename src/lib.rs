@@ -15,6 +15,7 @@ use std::time::Duration;
 use tokio::sync::mpsc::{UnboundedReceiver, WeakUnboundedSender};
 use tokio::sync::{mpsc, Mutex};
 
+pub mod aggregate;
 pub mod crawl;
 
 fn build_client(timeout: Duration) -> ClientWithMiddleware {
