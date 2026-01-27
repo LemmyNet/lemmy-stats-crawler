@@ -107,7 +107,7 @@ fn write_compressed<T: Serialize>(
     file: &'static str,
     out_path: &str,
 ) -> Result<(), Error> {
-    let mut e = GzEncoder::new(Vec::new(), Compression::default());
+    let mut e = GzEncoder::new(Vec::new(), Compression::best());
     e.write_all(serde_json::to_string_pretty(&data)?.as_bytes())?;
     let compressed_bytes = e.finish()?;
     let mut file = File::create(format!("{}/{file}", out_path))?;
