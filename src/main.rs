@@ -1,6 +1,7 @@
 use anyhow::Error;
 use chrono::Utc;
 use clap::Parser;
+use flate2::{write::GzEncoder, Compression};
 use lemmy_stats_crawler::{
     aggregate::{full_instance_data, joinlemmy_instance_data, minimal_instance_data},
     start_crawl,
@@ -68,8 +69,9 @@ pub async fn main() -> Result<(), Error> {
     let total_stats = full_instance_data(instance_details, start_time);
 
     eprintln!("Writing output to {}", &params.out_path);
+    create_dir_all(format!("{}/instances", &params.out_path))?;
 
-    write(&total_stats, "instances/full.json", &params.out_path)?;
+    write_compressed(&total_stats, "instances/full.json.gz", &params.out_path)?;
 
     let joinlemmy = joinlemmy_instance_data(&total_stats);
     write(&joinlemmy, "instances/joinlemmy.json", &params.out_path)?;
@@ -95,8 +97,20 @@ pub async fn main() -> Result<(), Error> {
 }
 
 fn write<T: Serialize>(data: &T, file: &'static str, out_path: &str) -> Result<(), Error> {
-    create_dir_all(format!("{}/instances", out_path))?;
     let mut file = File::create(format!("{}/{file}", out_path))?;
     file.write_all(serde_json::to_string_pretty(&data)?.as_bytes())?;
+    Ok(())
+}
+
+fn write_compressed<T: Serialize>(
+    data: &T,
+    file: &'static str,
+    out_path: &str,
+) -> Result<(), Error> {
+    let mut e = GzEncoder::new(Vec::new(), Compression::default());
+    e.write_all(serde_json::to_string_pretty(&data)?.as_bytes())?;
+    let compressed_bytes = e.finish()?;
+    let mut file = File::create(format!("{}/{file}", out_path))?;
+    file.write_all(&compressed_bytes)?;
     Ok(())
 }

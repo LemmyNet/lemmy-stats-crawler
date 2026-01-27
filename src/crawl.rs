@@ -57,8 +57,11 @@ pub struct CrawlResult {
     pub domain: String,
     pub site_info: GetSiteResponse,
     pub geo_ip: Option<GeoIp<'static>>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub linked_instances: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub allowed_instances: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub blocked_instances: Vec<String>,
 }
 

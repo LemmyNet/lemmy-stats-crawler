@@ -80,6 +80,9 @@ pub fn joinlemmy_instance_data(total_stats: &TotalStats<CrawlResult>) -> TotalSt
             i.site_info.site_view.local_site.slur_filter_regex = None;
             i.site_info.site_view.site.public_key = String::new();
             i.site_info.blocked_urls = vec![];
+            i.allowed_instances = vec![];
+            i.blocked_instances = vec![];
+            i.linked_instances = vec![];
             i
         })
         .collect();
