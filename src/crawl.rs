@@ -57,6 +57,9 @@ pub struct CrawlResult {
     pub domain: String,
     pub site_info: GetSiteResponse,
     pub geo_ip: Option<GeoIp<'static>>,
+    pub linked_instances: Vec<String>,
+    pub allowed_instances: Vec<String>,
+    pub blocked_instances: Vec<String>,
 }
 
 impl CrawlJob {
@@ -102,6 +105,7 @@ impl CrawlJob {
                 .for_each(|j| sender.send(j).unwrap());
         }
 
+        let f = federated_instances.federated_instances;
         let crawl_result = CrawlResult {
             domain: self.domain.clone(),
             site_info,
@@ -109,6 +113,21 @@ impl CrawlJob {
                 .inspect_err(|e| warn!("GeoIp failed for {}: {e}", &self.domain))
                 .ok()
                 .flatten(),
+            linked_instances: f
+                .iter()
+                .flat_map(|f| f.linked.clone())
+                .map(|l| l.instance.domain)
+                .collect(),
+            allowed_instances: f
+                .iter()
+                .flat_map(|f| f.allowed.clone())
+                .map(|l| l.instance.domain)
+                .collect(),
+            blocked_instances: f
+                .iter()
+                .flat_map(|f| f.blocked.clone())
+                .map(|l| l.instance.domain)
+                .collect(),
         };
         self.params.result_sender.send(crawl_result).unwrap();
 
