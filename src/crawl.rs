@@ -95,8 +95,9 @@ impl CrawlJob {
         if self.current_distance < self.params.max_distance {
             let crawled_instances = self.params.crawled_instances.lock().await;
             federated_instances
-                .federated_instances
                 .clone()
+                .map(|f| f.federated_instances)
+                .unwrap_or_default()
                 .map(|f| f.linked)
                 .unwrap_or_default()
                 .into_iter()
@@ -113,7 +114,9 @@ impl CrawlJob {
                 .for_each(|j| sender.send(j).unwrap());
         }
 
-        let f = federated_instances.federated_instances;
+        let f = federated_instances
+            .into_iter()
+            .flat_map(|f| f.federated_instances);
         let crawl_result = CrawlResult {
             domain: self.domain.clone(),
             site_info,
@@ -122,18 +125,15 @@ impl CrawlJob {
                 .ok()
                 .flatten(),
             communities,
-            linked_instances: f
-                .iter()
+            linked_instances: f.clone()
                 .flat_map(|f| f.linked.clone())
                 .map(|l| l.instance.domain)
                 .collect(),
-            allowed_instances: f
-                .iter()
+            allowed_instances: f.clone()
                 .flat_map(|f| f.allowed.clone())
                 .map(|l| l.instance.domain)
                 .collect(),
-            blocked_instances: f
-                .iter()
+            blocked_instances: f.clone()
                 .flat_map(|f| f.blocked.clone())
                 .map(|l| l.instance.domain)
                 .collect(),
@@ -148,7 +148,7 @@ impl CrawlJob {
     ) -> Result<
         (
             GetSiteResponse,
-            GetFederatedInstancesResponse,
+            Option<GetFederatedInstancesResponse>,
             Vec<CommunityView>,
         ),
         Error,
@@ -163,27 +163,11 @@ impl CrawlJob {
             .client
             .get(format!("https://{}/api/v3/site", &self.domain))
             .send();
-        let federated_instances = self
-            .params
-            .client
-            .get(format!(
-                "https://{}/api/v3/federated_instances",
-                &self.domain
-            ))
-            .send();
 
-        let (node_info, site_info, federated_instances) =
-            join!(node_info, site_info, federated_instances);
+        let (node_info, site_info) = join!(node_info, site_info);
 
-        let (node_info, site_info, federated_instances): (
-            NodeInfo,
-            GetSiteResponse,
-            GetFederatedInstancesResponse,
-        ) = try_join!(
-            node_info?.json(),
-            site_info?.json(),
-            federated_instances?.json()
-        )?;
+        let (node_info, site_info): (NodeInfo, GetSiteResponse) =
+            try_join!(node_info?.json(), site_info?.json(),)?;
         if node_info.software.name != "lemmy" {
             return Err(anyhow!("wrong software {}", node_info.software.name));
         }
@@ -197,6 +181,20 @@ impl CrawlJob {
             ));
         }
 
+        // Fetch communities and ignore errors
+        let communities = self
+            .fetch_communities()
+            .await
+            .inspect_err(|e| warn!("Failed to fetch communities from {}: {e}", self.domain))
+            .unwrap_or_default();
+
+        // Fetch federated instances and ignore errors
+        let federated_instances = self.fetch_federated_instances().await.ok();
+
+        Ok((site_info, federated_instances, communities))
+    }
+
+    async fn fetch_communities(&self) -> Result<Vec<CommunityView>, Error> {
         let mut communities = vec![];
         let mut page = 1;
         loop {
@@ -214,8 +212,21 @@ impl CrawlJob {
             }
             page += 1;
         }
+        Ok(communities)
+    }
 
-        Ok((site_info, federated_instances, communities))
+    async fn fetch_federated_instances(&self) -> Result<GetFederatedInstancesResponse, Error> {
+        Ok(self
+            .params
+            .client
+            .get(format!(
+                "https://{}/api/v3/federated_instances",
+                &self.domain
+            ))
+            .send()
+            .await?
+            .json()
+            .await?)
     }
 
     fn geo_ip(domain: String) -> Result<Option<GeoIp<'static>>, Error> {
