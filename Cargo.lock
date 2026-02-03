@@ -184,12 +184,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5dd9dc738b7a8311c7ade152424974d8115f2cdad61e8dab8dac9f2362298510"
 
 [[package]]
-name = "byteorder"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
-
-[[package]]
 name = "bytes"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -212,17 +206,6 @@ name = "cesu8"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d43a04d8753f35258c91f8ec639f792891f748a1edbd759cf1dcea3382ad83c"
-
-[[package]]
-name = "cfb"
-version = "0.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d38f2da7a0a2c4ccf0065be06397cc26a81f4e528be095826eee9d4adbb8c60f"
-dependencies = [
- "byteorder",
- "fnv",
- "uuid",
-]
 
 [[package]]
 name = "cfg-if"
@@ -289,20 +272,6 @@ name = "clap_lex"
 version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3e64b0cc0439b12df2fa678eae89a1c56a529fd067a9115f7827f1fffd22b32"
-
-[[package]]
-name = "clearurls"
-version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e291c00af89ac0a5b400d9ba46a682e38015ae3cd8926dbbe85b3b864d550be3"
-dependencies = [
- "linkify",
- "percent-encoding",
- "regex",
- "serde",
- "serde_json",
- "url",
-]
 
 [[package]]
 name = "cmake"
@@ -436,6 +405,17 @@ checksum = "ececcb659e7ba858fb4f10388c250a7252eb0a27373f1a72b8748afdd248e587"
 dependencies = [
  "powerfmt",
  "serde_core",
+]
+
+[[package]]
+name = "derive-new"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d150dea618e920167e5973d70ae6ece4385b7164e0d799fe7c122dd0a5d912ad"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -677,26 +657,6 @@ name = "gimli"
 version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
-
-[[package]]
-name = "git-version"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ad568aa3db0fcbc81f2f116137f263d7304f512a1209b35b85150d3ef88ad19"
-dependencies = [
- "git-version-macro",
-]
-
-[[package]]
-name = "git-version-macro"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53010ccb100b96a67bc32c0175f0ed1426b31b655d562898e57325f81c023ac0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
 
 [[package]]
 name = "hashbrown"
@@ -984,15 +944,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "infer"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc150e5ce2330295b8616ce0e3f53250e53af31759a9dbedad1621ba29151847"
-dependencies = [
- "cfb",
-]
-
-[[package]]
 name = "ipnet"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1092,7 +1043,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
- "derive-new",
+ "derive-new 0.7.0",
  "flate2",
  "lemmy_api_common",
  "log",
@@ -1111,21 +1062,19 @@ dependencies = [
 
 [[package]]
 name = "lemmy_api_common"
-version = "0.19.15"
+version = "0.19.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dc546f9085a08be3f77034e188a62d407b8f202066fff86b3587b81caef6b71"
+checksum = "0350aefa5e5b7bc90fe5a6f992dbac5a1960c776ff16f4bee18660f11b3b95fc"
 dependencies = [
  "anyhow",
  "chrono",
  "enum-map",
  "getrandom 0.2.17",
- "infer",
  "lemmy_db_schema",
  "lemmy_db_views",
  "lemmy_db_views_actor",
  "lemmy_db_views_moderator",
  "lemmy_utils",
- "mime_guess",
  "moka",
  "regex",
  "serde",
@@ -1136,19 +1085,20 @@ dependencies = [
 
 [[package]]
 name = "lemmy_db_schema"
-version = "0.19.15"
+version = "0.19.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a84ec17b38bee9aa0868b21853c351da013929cf55d398d921dce351a291a012"
+checksum = "4280976725dce988e4750e124a5600ead8d7fca0a07a7cf9e42da3ece946396c"
 dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
- "derive-new",
+ "derive-new 0.6.0",
  "futures-util",
  "moka",
  "serde",
  "serde_with",
  "strum",
+ "strum_macros",
  "tracing",
  "typed-builder",
  "url",
@@ -1157,9 +1107,9 @@ dependencies = [
 
 [[package]]
 name = "lemmy_db_views"
-version = "0.19.15"
+version = "0.19.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5d7aab8dc643751af89fb1deb84a38290a20685bc329f2e540bc7ef58b2c889"
+checksum = "d7107a8725ed7fd12eb0cb451dff52d969ca5ac445d1aabb77881cfe75715a45"
 dependencies = [
  "chrono",
  "lemmy_db_schema",
@@ -1169,22 +1119,23 @@ dependencies = [
 
 [[package]]
 name = "lemmy_db_views_actor"
-version = "0.19.15"
+version = "0.19.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5665d8bc0a7295f0fdf2a05a6cc45ed685b8f4c780a67a00f324343671f2e2d"
+checksum = "bb7eeb5e65373c37aff03793cf90f8096557af7eb5f41426be9d3bc64b782152"
 dependencies = [
  "chrono",
  "lemmy_db_schema",
  "serde",
  "serde_with",
  "strum",
+ "strum_macros",
 ]
 
 [[package]]
 name = "lemmy_db_views_moderator"
-version = "0.19.15"
+version = "0.19.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90dab18f0fab10a795a2eb58cf8f812a6f9e21aea1b0e6f8534ec4d8b861daed"
+checksum = "52b9425bb6059979ebe5b4f2124ff5af898ac6e5fcf43053bd2485c504afe39e"
 dependencies = [
  "lemmy_db_schema",
  "serde",
@@ -1193,16 +1144,15 @@ dependencies = [
 
 [[package]]
 name = "lemmy_utils"
-version = "0.19.15"
+version = "0.19.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93ac654da0cb34a9304b304cd1cdc42ece48bbbdd9cb9a3daae1d4ba9458cfa9"
+checksum = "5afa108b6db73c057eb9aadaecd84269c138500519789c76106c671df684fb5a"
 dependencies = [
  "cfg-if",
- "clearurls",
- "git-version",
  "rosetta-build",
  "serde",
  "strum",
+ "strum_macros",
 ]
 
 [[package]]
@@ -1210,15 +1160,6 @@ name = "libc"
 version = "0.2.180"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bcc35a38544a891a5f7c865aca548a982ccb3b8650a5b06d0fd33a10283c56fc"
-
-[[package]]
-name = "linkify"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1dfa36d52c581e9ec783a7ce2a5e0143da6237be5811a0b3153fedfdbe9f780"
-dependencies = [
- "memchr",
-]
 
 [[package]]
 name = "litemap"
@@ -1265,22 +1206,6 @@ name = "memchr"
 version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
-
-[[package]]
-name = "mime"
-version = "0.3.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
-
-[[package]]
-name = "mime_guess"
-version = "2.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7c44f8e672c00fe5308fa235f821cb4198414e1c77935c1ab6948d3fd78550e"
-dependencies = [
- "mime",
- "unicase",
-]
 
 [[package]]
 name = "miniz_oxide"
@@ -2026,9 +1951,6 @@ name = "strum"
 version = "0.26.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
-dependencies = [
- "strum_macros",
-]
 
 [[package]]
 name = "strum_macros"
@@ -2326,29 +2248,23 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "typed-builder"
-version = "0.19.1"
+version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a06fbd5b8de54c5f7c91f6fe4cebb949be2125d7758e630bb58b1d831dbce600"
+checksum = "77739c880e00693faef3d65ea3aad725f196da38b22fdc7ea6ded6e1ce4d3add"
 dependencies = [
  "typed-builder-macro",
 ]
 
 [[package]]
 name = "typed-builder-macro"
-version = "0.19.1"
+version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9534daa9fd3ed0bd911d462a37f172228077e7abf18c18a5f67199d959205f8"
+checksum = "1f718dfaf347dcb5b983bfc87608144b0bad87970aebcbea5ce44d2a30c08e63"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn",
 ]
-
-[[package]]
-name = "unicase"
-version = "2.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbc4bc3a9f746d862c45cb89d705aa10f187bb96c76001afab07a0d35ce60142"
 
 [[package]]
 name = "unicode-ident"

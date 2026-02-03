@@ -1,15 +1,15 @@
 use crate::structs::NodeInfo;
-use anyhow::{anyhow, Error};
+use anyhow::{Error, anyhow};
 use flate2::bufread::GzDecoder;
 use lemmy_api_common_v019::community::ListCommunitiesResponse;
 use lemmy_api_common_v019::lemmy_db_views_actor::structs::CommunityView;
 use lemmy_api_common_v019::site::{GetFederatedInstancesResponse, GetSiteResponse};
 use log::warn;
+use maxminddb::Reader;
 use maxminddb::geoip2;
 use maxminddb::geoip2::city::City;
 use maxminddb::geoip2::city::Continent;
 use maxminddb::geoip2::country::Country;
-use maxminddb::Reader;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use reqwest_middleware::ClientWithMiddleware;
@@ -23,8 +23,8 @@ use std::net::ToSocketAddrs;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use tokio::join;
-use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::Mutex;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::try_join;
 
 /// Regex to check that a domain is valid
@@ -125,15 +125,18 @@ impl CrawlJob {
                 .ok()
                 .flatten(),
             communities,
-            linked_instances: f.clone()
+            linked_instances: f
+                .clone()
                 .flat_map(|f| f.linked.clone())
                 .map(|l| l.instance.domain)
                 .collect(),
-            allowed_instances: f.clone()
+            allowed_instances: f
+                .clone()
                 .flat_map(|f| f.allowed.clone())
                 .map(|l| l.instance.domain)
                 .collect(),
-            blocked_instances: f.clone()
+            blocked_instances: f
+                .clone()
                 .flat_map(|f| f.blocked.clone())
                 .map(|l| l.instance.domain)
                 .collect(),
@@ -203,14 +206,20 @@ impl CrawlJob {
                 "https://{}/api/v3/community/list?type_=Local&sort=Hot&limit={LIMIT}&page={page}",
                 &self.domain
             );
-            let mut list_communities: ListCommunitiesResponse =
-                self.params.client.get(url).send().await?.json().await?;
-            let len = list_communities.communities.len();
-            communities.append(&mut list_communities.communities);
-            if len < LIMIT {
+            // TODO: Lemmy throws an error if page > 100, so results are incomplete on large instances. Will be fixed with cursor pagination in 1.0
+            let res = self.params.client.get(url).send().await;
+            if let Ok(res) = res
+                && let Ok(mut list_communities) = res.json::<ListCommunitiesResponse>().await
+            {
+                let len = list_communities.communities.len();
+                communities.append(&mut list_communities.communities);
+                if len < LIMIT {
+                    break;
+                }
+                page += 1;
+            } else {
                 break;
             }
-            page += 1;
         }
         Ok(communities)
     }

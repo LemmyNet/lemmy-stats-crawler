@@ -2,7 +2,7 @@
 name = "lemmy-stats-crawler"
 version = "0.1.0"
 authors = ["Felix Ableitner"]
-edition = "2018"
+edition = "2024"
 
 [profile.release]
 strip = "symbols"
@@ -16,7 +16,7 @@ debug = 0
 [dependencies]
 # Avoid upgrading this dependency, otherwise older instances cannot be crawled as 
 # API becomes incompatible
-lemmy_api_common_v019 = { package = "lemmy_api_common", version = "0.19.0" }
+lemmy_api_common_v019 = { package = "lemmy_api_common", version = "=0.19.5" }
 reqwest = { version = "0.13.1", default-features = false, features = [
   "json",
   "rustls",

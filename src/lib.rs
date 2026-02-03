@@ -7,13 +7,13 @@ use crawl::{CrawlJob, CrawlResult};
 use log::{debug, trace};
 use reqwest::redirect::Policy;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
-use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
+use reqwest_retry::{RetryTransientMiddleware, policies::ExponentialBackoff};
 use semver::Version;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::{UnboundedReceiver, WeakUnboundedSender};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 
 pub mod aggregate;
 pub mod crawl;

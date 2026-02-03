@@ -1,7 +1,7 @@
 use anyhow::Error;
 use chrono::Utc;
 use clap::Parser;
-use flate2::{write::GzEncoder, Compression};
+use flate2::{Compression, write::GzEncoder};
 use lemmy_stats_crawler::{
     aggregate::{
         full_instance_data, joinlemmy_instance_data, minimal_community_data, minimal_instance_data,
@@ -10,7 +10,7 @@ use lemmy_stats_crawler::{
 };
 use serde::Serialize;
 use std::{
-    fs::{create_dir_all, File},
+    fs::{File, create_dir_all},
     io::Write,
     time::Duration,
 };
