@@ -1,3 +1,4 @@
+use crate::structs::NodeInfo;
 use anyhow::{anyhow, Error};
 use flate2::bufread::GzDecoder;
 use lemmy_api_common_v019::site::{GetFederatedInstancesResponse, GetSiteResponse};
@@ -140,6 +141,11 @@ impl CrawlJob {
     async fn fetch_instance_details(
         &self,
     ) -> Result<(GetSiteResponse, GetFederatedInstancesResponse), Error> {
+        let node_info = self
+            .params
+            .client
+            .get(format!("https://{}/nodeinfo/2.1", &self.domain))
+            .send();
         let site_info = self
             .params
             .client
@@ -154,7 +160,13 @@ impl CrawlJob {
             ))
             .send();
 
-        let (site_info, federated_instances) = join!(site_info, federated_instances);
+        let (node_info, site_info, federated_instances) =
+            join!(node_info, site_info, federated_instances);
+
+        let node_info = node_info?.json::<NodeInfo>().await?;
+        if node_info.software.name != "lemmy" && node_info.software.name != "lemmybb" {
+            return Err(anyhow!("wrong software {}", node_info.software.name));
+        }
 
         let site_info = site_info?.json::<GetSiteResponse>().await?;
         let site_actor = &site_info.site_view.site.actor_id;

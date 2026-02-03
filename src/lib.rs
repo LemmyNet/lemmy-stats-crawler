@@ -17,6 +17,7 @@ use tokio::sync::{mpsc, Mutex};
 
 pub mod aggregate;
 pub mod crawl;
+mod structs;
 
 fn build_client(timeout: Duration) -> ClientWithMiddleware {
     let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
