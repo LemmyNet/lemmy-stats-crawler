@@ -3,7 +3,9 @@ use chrono::Utc;
 use clap::Parser;
 use flate2::{write::GzEncoder, Compression};
 use lemmy_stats_crawler::{
-    aggregate::{full_instance_data, joinlemmy_instance_data, minimal_instance_data},
+    aggregate::{
+        full_instance_data, joinlemmy_instance_data, minimal_community_data, minimal_instance_data,
+    },
     start_crawl,
 };
 use serde::Serialize;
@@ -66,10 +68,11 @@ pub async fn main() -> Result<(), Error> {
     )
     .await?;
 
-    let total_stats = full_instance_data(instance_details, start_time);
+    let (total_stats, communities) = full_instance_data(instance_details, start_time);
 
     eprintln!("Writing output to {}", &params.out_path);
     create_dir_all(format!("{}/instances", &params.out_path))?;
+    create_dir_all(format!("{}/communities", &params.out_path))?;
 
     write_compressed(&total_stats, "instances/full.json.gz", &params.out_path)?;
 
@@ -78,6 +81,11 @@ pub async fn main() -> Result<(), Error> {
 
     let minimal = minimal_instance_data(&total_stats);
     write(&minimal, "instances/minimal.json", &params.out_path)?;
+
+    write_compressed(&communities, "communities/full.json.gz", &params.out_path)?;
+
+    let minimal = minimal_community_data(&communities);
+    write(&minimal, "communities/minimal.json", &params.out_path)?;
 
     eprintln!("Crawl complete");
     eprintln!(
