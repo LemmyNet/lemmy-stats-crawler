@@ -1,6 +1,8 @@
 use crate::structs::NodeInfo;
 use anyhow::{anyhow, Error};
 use flate2::bufread::GzDecoder;
+use lemmy_api_common_v019::community::ListCommunitiesResponse;
+use lemmy_api_common_v019::lemmy_db_views_actor::structs::CommunityView;
 use lemmy_api_common_v019::site::{GetFederatedInstancesResponse, GetSiteResponse};
 use log::warn;
 use maxminddb::geoip2;
@@ -23,6 +25,7 @@ use std::sync::LazyLock;
 use tokio::join;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::Mutex;
+use tokio::try_join;
 
 /// Regex to check that a domain is valid
 static DOMAIN_REGEX: Lazy<Regex> = Lazy::new(|| {
@@ -58,6 +61,7 @@ pub struct CrawlResult {
     pub domain: String,
     pub site_info: GetSiteResponse,
     pub geo_ip: Option<GeoIp<'static>>,
+    pub communities: Vec<CommunityView>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub linked_instances: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -81,7 +85,7 @@ impl CrawlJob {
             }
         }
 
-        let (site_info, federated_instances) = self.fetch_instance_details().await?;
+        let (site_info, federated_instances, communities) = self.fetch_instance_details().await?;
 
         let version = Version::parse(&site_info.version)?;
         if version < self.params.min_lemmy_version {
@@ -117,6 +121,7 @@ impl CrawlJob {
                 .inspect_err(|e| warn!("GeoIp failed for {}: {e}", &self.domain))
                 .ok()
                 .flatten(),
+            communities,
             linked_instances: f
                 .iter()
                 .flat_map(|f| f.linked.clone())
@@ -140,7 +145,14 @@ impl CrawlJob {
 
     async fn fetch_instance_details(
         &self,
-    ) -> Result<(GetSiteResponse, GetFederatedInstancesResponse), Error> {
+    ) -> Result<
+        (
+            GetSiteResponse,
+            GetFederatedInstancesResponse,
+            Vec<CommunityView>,
+        ),
+        Error,
+    > {
         let node_info = self
             .params
             .client
@@ -163,12 +175,19 @@ impl CrawlJob {
         let (node_info, site_info, federated_instances) =
             join!(node_info, site_info, federated_instances);
 
-        let node_info = node_info?.json::<NodeInfo>().await?;
-        if node_info.software.name != "lemmy" && node_info.software.name != "lemmybb" {
+        let (node_info, site_info, federated_instances): (
+            NodeInfo,
+            GetSiteResponse,
+            GetFederatedInstancesResponse,
+        ) = try_join!(
+            node_info?.json(),
+            site_info?.json(),
+            federated_instances?.json()
+        )?;
+        if node_info.software.name != "lemmy" {
             return Err(anyhow!("wrong software {}", node_info.software.name));
         }
 
-        let site_info = site_info?.json::<GetSiteResponse>().await?;
         let site_actor = &site_info.site_view.site.actor_id;
         if site_actor.domain() != Some(&self.domain) {
             return Err(anyhow!(
@@ -178,11 +197,25 @@ impl CrawlJob {
             ));
         }
 
-        let federated_instances = federated_instances?
-            .json::<GetFederatedInstancesResponse>()
-            .await?;
+        let mut communities = vec![];
+        let mut page = 1;
+        loop {
+            const LIMIT: usize = 50;
+            let url = format!(
+                "https://{}/api/v3/community/list?type_=Local&sort=Hot&limit={LIMIT}&page={page}",
+                &self.domain
+            );
+            let mut list_communities: ListCommunitiesResponse =
+                self.params.client.get(url).send().await?.json().await?;
+            let len = list_communities.communities.len();
+            communities.append(&mut list_communities.communities);
+            if len < LIMIT {
+                break;
+            }
+            page += 1;
+        }
 
-        Ok((site_info, federated_instances))
+        Ok((site_info, federated_instances, communities))
     }
 
     fn geo_ip(domain: String) -> Result<Option<GeoIp<'static>>, Error> {
