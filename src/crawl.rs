@@ -14,7 +14,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use reqwest_middleware::ClientWithMiddleware;
 use semver::Version;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufReader;
@@ -56,17 +56,18 @@ pub struct GeoIp<'a> {
     pub continent: Continent<'a>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct CrawlResult {
     pub domain: String,
     pub site_info: GetSiteResponse,
+    #[serde(skip_deserializing)]
     pub geo_ip: Option<GeoIp<'static>>,
     pub communities: Vec<CommunityView>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub linked_instances: Vec<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub allowed_instances: Vec<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub blocked_instances: Vec<String>,
 }
 
