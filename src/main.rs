@@ -85,7 +85,7 @@ pub async fn main() -> Result<(), Error> {
     write_compressed(&communities, "communities/full.json.gz", &params.out_path)?;
 
     let minimal = minimal_community_data(&communities);
-    write(&minimal, "communities/minimal.json", &params.out_path)?;
+    write_compressed(&minimal, "communities/minimal.json.gz", &params.out_path)?;
 
     eprintln!("Crawl complete");
     eprintln!(
