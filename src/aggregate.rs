@@ -1,12 +1,12 @@
 use chrono::{DateTime, Utc};
 use lemmy_api_common_v019::lemmy_db_views_actor::structs::CommunityView;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::crawl::CrawlResult;
 
 // TODO: lemmy stores these numbers in SiteAggregates, would be good to simply use that as a member
 //       (to avoid many members). but SiteAggregates also has id, site_id fields
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Deserialize)]
 pub struct TotalInstanceStats<T: Clone + Serialize> {
     pub crawled_instances: usize,
     pub total_users: i64,
@@ -153,7 +153,7 @@ pub fn joinlemmy_instance_data(
     joinlemmy_stats
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Deserialize)]
 pub struct MinimalInstanceData {
     domain: String,
     users: i64,
