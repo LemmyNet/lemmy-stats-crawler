@@ -74,18 +74,18 @@ pub async fn main() -> Result<(), Error> {
     create_dir_all(format!("{}/instances", &params.out_path))?;
     create_dir_all(format!("{}/communities", &params.out_path))?;
 
-    write_compressed(&total_stats, "instances/full.json.gz", &params.out_path)?;
+    write(&total_stats, "instances/full.json.gz", &params.out_path)?;
 
     let joinlemmy = joinlemmy_instance_data(&total_stats);
-    write(&joinlemmy, "instances/joinlemmy.json", &params.out_path)?;
+    write(&joinlemmy, "instances/joinlemmy.json.gz", &params.out_path)?;
 
     let minimal = minimal_instance_data(&total_stats);
-    write(&minimal, "instances/minimal.json", &params.out_path)?;
+    write(&minimal, "instances/minimal.json.gz", &params.out_path)?;
 
-    write_compressed(&communities, "communities/full.json.gz", &params.out_path)?;
+    write(&communities, "communities/full.json.gz", &params.out_path)?;
 
     let minimal = minimal_community_data(&communities);
-    write_compressed(&minimal, "communities/minimal.json.gz", &params.out_path)?;
+    write(&minimal, "communities/minimal.json.gz", &params.out_path)?;
 
     eprintln!("Crawl complete");
     eprintln!(
@@ -105,16 +105,6 @@ pub async fn main() -> Result<(), Error> {
 }
 
 fn write<T: Serialize>(data: &T, file: &'static str, out_path: &str) -> Result<(), Error> {
-    let mut file = File::create(format!("{}/{file}", out_path))?;
-    file.write_all(serde_json::to_string_pretty(&data)?.as_bytes())?;
-    Ok(())
-}
-
-fn write_compressed<T: Serialize>(
-    data: &T,
-    file: &'static str,
-    out_path: &str,
-) -> Result<(), Error> {
     let mut e = GzEncoder::new(Vec::new(), Compression::best());
     e.write_all(serde_json::to_string_pretty(&data)?.as_bytes())?;
     let compressed_bytes = e.finish()?;
