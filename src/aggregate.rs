@@ -1,5 +1,7 @@
 use chrono::{DateTime, Utc};
-use lemmy_api_common_v019::lemmy_db_views_actor::structs::CommunityView;
+use lemmy_api_common_v019::{
+    lemmy_db_schema::RegistrationMode, lemmy_db_views_actor::structs::CommunityView,
+};
 use serde::Serialize;
 
 use crate::crawl::CrawlResult;
@@ -121,12 +123,9 @@ pub fn joinlemmy_instance_data(
         // Filter out instances with other registration modes (closed dont allow signups and
         // open are often abused by bots)
         .filter(|i| {
-            &i.site_info
-                .site_view
-                .local_site
-                .registration_mode
-                .to_string()
-                == "RequireApplication"
+            let local_site = &i.site_info.site_view.local_site;
+            local_site.registration_mode == RegistrationMode::RequireApplication
+                || local_site.captcha_enabled
         })
         // Require at least 5 monthly users
         .filter(|i| i.site_info.site_view.counts.users_active_month > 5)
