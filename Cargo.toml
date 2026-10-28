@@ -17,23 +17,23 @@ debug = 0
 # Avoid upgrading this dependency, otherwise older instances cannot be crawled as 
 # API becomes incompatible
 lemmy_api_common_v019 = { package = "lemmy_api_common", version = "=0.19.5" }
-reqwest = { version = "0.13.1", default-features = false, features = [
+reqwest = { version = "0.13.5", default-features = false, features = [
   "json",
   "rustls",
 ] }
-reqwest-middleware = "0.5.0"
-reqwest-retry = "0.9.0"
-serde = { version = "1.0.228", features = ["derive"] }
-anyhow = "1.0.100"
-tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
-serde_json = "1.0.149"
-semver = "1.0.27"
-once_cell = "1.21.3"
-log = "0.4.29"
+reqwest-middleware = "0.5.2"
+reqwest-retry = "0.9.1"
+serde = { version = "1.0.229", features = ["derive"] }
+anyhow = "1.0.104"
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread"] }
+serde_json = "1.0.154"
+semver = "1.0.28"
+once_cell = "1.21.4"
+log = "0.4.34"
 derive-new = "0.7.0"
 stderrlog = "0.6.0"
-clap = { version = "4.5", features = ["derive"] }
-regex = "1.12.2"
-maxminddb = "0.27"
+clap = { version = "4.6", features = ["derive"] }
+regex = "1.13.1"
+maxminddb = "0.32"
 flate2 = "1.1"
-chrono = "0.4.43"
+chrono = "0.4.45"
